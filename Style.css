@@ -1,0 +1,244 @@
+/* "Захвати рынок или закрой бизнес" — MVP v4.0 · от 28.08.2026 */
+:root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --border: #262a33;
+    --text: #eef0f3;
+    --muted: #8a8f99;
+    --accent: #3ba55d;
+    --danger: #d9534f;
+    --warn: #e0a530;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+  }
+
+  .hidden { display: none !important; }
+
+  .screen { padding: 12px 14px 32px; max-width: 480px; margin: 0 auto; }
+  .center { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+  .center-text { text-align: center; color: var(--muted); padding: 12px 0; }
+
+  .spinner {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite; margin-bottom: 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .topbar {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 10px 2px 14px;
+  }
+  .restaurant-name { font-size: 18px; font-weight: 600; }
+  .round-label { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .cash-block { text-align: right; }
+  .cash-thb { font-size: 20px; font-weight: 700; }
+  .cash-usd { font-size: 12px; color: var(--muted); }
+
+  .bank-banner {
+    background: linear-gradient(90deg, #1b3a2a, #143622);
+    border: 1px solid var(--accent);
+    color: #bdf0cf;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+
+  .stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; margin-bottom: 14px;
+  }
+  .stat {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 6px; text-align: center;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .stat-value { font-size: 16px; font-weight: 600; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px; margin-bottom: 14px;
+  }
+  .card h3 { margin: 0 0 10px; font-size: 15px; }
+  .muted { color: var(--muted); font-size: 13px; }
+
+  .capacity-bar {
+    display: flex; height: 22px; border-radius: 6px; overflow: hidden;
+    background: var(--border); margin-bottom: 8px;
+  }
+  .capacity-served { background: var(--accent); }
+  .capacity-lost { background: var(--danger); }
+  .capacity-legend { display: flex; gap: 18px; font-size: 13px; margin-bottom: 12px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+  .dot.served { background: var(--accent); }
+  .dot.lost { background: var(--danger); }
+
+  .pl-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .pl-table td { padding: 5px 2px; border-bottom: 1px solid var(--border); }
+  .pl-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .pl-subtotal td { font-weight: 600; border-top: 1px solid var(--border); border-bottom: none; padding-top: 8px; }
+  .pl-total td { font-weight: 700; border-bottom: none; }
+
+  .section-subhead {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em;
+    color: var(--muted); margin: 18px 0 10px;
+  }
+
+  .channel-card {
+    background: #0d0f13; border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 10px;
+  }
+  .channel-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .channel-name { font-weight: 600; font-size: 14px; }
+  .channel-badge { font-size: 11px; color: var(--accent); }
+  .channel-blurb { font-size: 12px; color: var(--muted); margin: 0 0 8px; line-height: 1.4; }
+  .channel-card input {
+    margin-top: 0; background: #05060a; border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 10px; font-size: 14px; width: 100%;
+  }
+
+  .marketing-breakdown { margin-top: 10px; }
+  .marketing-breakdown summary {
+    cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0;
+  }
+  .marketing-breakdown table { margin-top: 8px; }
+
+  .repay-block { display: flex; gap: 8px; margin-top: 10px; }
+  .repay-block input {
+    flex: 1; background: #0d0f13; border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 10px; font-size: 14px;
+  }
+  .repay-block button { white-space: nowrap; }
+
+  .danger-zone { border-color: #4a2323; }
+  .btn-danger {
+    width: 100%; background: transparent; color: var(--danger); border: 1px solid var(--danger);
+    border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 600; margin-top: 6px;
+  }
+  #reset-confirm-block { margin-top: 12px; }
+  #reset-confirm-block input {
+    width: 100%; background: #0d0f13; border: 1px solid var(--danger); color: var(--text);
+    border-radius: 8px; padding: 10px; font-size: 14px; margin-bottom: 10px;
+  }
+  .reset-confirm-actions { display: flex; gap: 8px; }
+  .reset-confirm-actions .btn-danger { margin-top: 0; }
+
+  .round-timer {
+    font-size: 44px; font-weight: 800; text-align: center;
+    padding: 10px; border-radius: 12px; margin-bottom: 14px;
+    background: #12321f; color: #bdf0cf; letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+    transition: background 0.3s, color 0.3s;
+  }
+  .round-timer.timer-urgent {
+    background: #3a1414; color: #ff8080;
+    animation: pulse-urgent 1s infinite;
+  }
+  @keyframes pulse-urgent {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  form label {
+    display: block; margin-bottom: 12px; font-size: 13px; color: var(--muted);
+  }
+  form input, form select {
+    display: block; width: 100%; margin-top: 5px;
+    background: #0d0f13; border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 10px; font-size: 15px;
+  }
+
+  .btn-primary {
+    width: 100%; background: var(--accent); color: white; border: none;
+    border-radius: 10px; padding: 13px; font-size: 15px; font-weight: 600;
+    margin-top: 4px;
+  }
+  .btn-secondary {
+    background: transparent; color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; font-size: 14px;
+  }
+  .btn-secondary.small { padding: 6px 10px; font-size: 13px; }
+
+  button:disabled, .btn-loading {
+    opacity: 0.6; cursor: default;
+  }
+
+  .lifecycle-actions { display: flex; gap: 10px; margin-top: 10px; }
+  .lifecycle-actions button { flex: 1; margin-top: 0; }
+
+  .career-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .career-actions button { margin-top: 0; }
+
+  .custom-profession-form { margin-top: 12px; display: flex; gap: 8px; }
+  .custom-profession-form input {
+    flex: 1; background: #0d0f13; border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 10px; font-size: 14px;
+  }
+  .custom-profession-form button { white-space: nowrap; }
+
+  .employee-item {
+    background: #0d0f13; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; margin-bottom: 10px;
+  }
+  .employee-item .employee-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .employee-item .employee-name { font-weight: 600; font-size: 14px; }
+  .employee-item .employee-meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .employee-item .employee-actions { display: flex; gap: 8px; }
+  .employee-item .employee-actions button { flex: 1; margin-top: 0; }
+  .employee-item .employee-paid { color: var(--accent); font-size: 13px; font-weight: 600; }
+
+  /* v3.2 — состояние карточки сотрудника, пока действие не подтверждено
+     сервером: кнопок нет, вместо них видно, какой выбор сделан. */
+  .employee-item .employee-status { font-size: 12px; margin-bottom: 8px; }
+  .employee-item .employee-status.ok { color: var(--accent); }
+  .employee-item .employee-status.pending { color: var(--muted); }
+  .employee-item .employee-pending {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; color: var(--muted);
+  }
+  .employee-item .employee-pending::before {
+    content: ''; width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--border); border-top-color: var(--muted);
+    animation: spin 0.8s linear infinite;
+  }
+  .employee-item-busy { opacity: 0.75; }
+
+  /* v3.2 — пока любое действие в полёте, кнопки по всему экрану не
+     реагируют на нажатия: повторный клик в этот момент раньше уходил
+     вторым запросом и мог приземлиться уже после первого, откатывая
+     экран. Поля ввода намеренно НЕ блокируем — человек может продолжать
+     печатать, пока сохраняется что-то другое. */
+  body.app-busy button:not(.btn-loading) { opacity: 0.55; pointer-events: none; }
+
+  /* Прочерки в мониторе ведущего для показателей, которых у игрока вне
+     бизнеса просто нет (бренд, ёмкость, банк) — честнее нуля. */
+  .cell-na { color: var(--border); }
+  .cell-note { display: block; font-size: 10px; color: var(--muted); }
+
+  .card > label {
+    display: block; margin-bottom: 12px; font-size: 13px; color: var(--muted);
+  }
+  .card > label select {
+    display: block; width: 100%; margin-top: 5px;
+    background: #0d0f13; border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 10px; font-size: 15px;
+  }
+
+  .admin-actions { display: flex; gap: 10px; }
+  .admin-actions .btn-primary { flex: 1; }
+
+  .monitor-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .monitor-table th, .monitor-table td {
+    padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: left;
+  }
+  .monitor-table td.ok { color: var(--accent); }
+  .monitor-table td.pending { color: var(--warn); }

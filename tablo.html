@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<!-- "Захвати рынок или закрой бизнес" — MVP v4.0 · от 28.08.2026 -->
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Захвати рынок или закрой бизнес — Табло</title>
+  <link rel="stylesheet" href="tablo.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <header class="tablo-header">
+    <div class="tablo-title">Захвати рынок или закрой бизнес</div>
+    <div class="tablo-header-right">
+      <div id="t-timer" class="tablo-timer hidden">05:00</div>
+      <div class="tablo-round" id="t-round">Месяц —</div>
+    </div>
+  </header>
+
+  <nav class="tablo-tabs">
+    <button class="tab-btn active" data-metric="profit">Прибыль</button>
+    <button class="tab-btn" data-metric="cash">Капитал</button>
+    <button class="tab-btn" data-metric="marketSharePct">Доля рынка</button>
+    <button class="tab-btn" data-metric="served">Клиенты</button>
+    <button class="tab-btn" data-metric="price">Цена</button>
+    <button class="tab-btn" data-metric="brand">Бренд</button>
+    <button class="tab-btn" data-metric="reputation">Репутация</button>
+    <button class="tab-btn" data-metric="quality">Качество</button>
+    <button class="tab-btn" data-metric="capacity">Ёмкость</button>
+    <button class="tab-btn" data-metric="marketingTotal">Реклама</button>
+    <button class="tab-btn" data-metric="qualityInvest">Вложения в кач-во</button>
+    <button class="tab-btn" data-metric="techinfo" id="techinfo-tab-btn">Техданные</button>
+  </nav>
+
+  <main class="tablo-chart-wrap">
+    <canvas id="tablo-chart"></canvas>
+    <div id="tablo-techinfo" class="tablo-techinfo-page hidden"></div>
+  </main>
+
+  <div id="tablo-empty" class="tablo-empty hidden">
+    Пока нет данных — табло обновится, как только будет рассчитан первый месяц.
+  </div>
+
+  <script src="tablo.js"></script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+/* "Захвати рынок или закрой бизнес" — MVP v4.0 · от 28.08.2026 */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: #0a0c10; color: #eef0f3;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+.tablo-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 24px 40px 8px;
+  flex: 0 0 auto;
+}
+.tablo-title { font-size: 32px; font-weight: 700; }
+.tablo-header-right { display: flex; align-items: baseline; gap: 18px; }
+.tablo-round { font-size: 22px; color: #8a8f99; }
+
+/* Таймер теперь встроен в шапку, а не отдельным блоком в потоке документа —
+   его появление/исчезновение больше не двигает вкладки и график вниз/вверх. */
+.tablo-timer {
+  font-size: 32px; font-weight: 800; color: #bdf0cf; letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums; line-height: 1;
+  padding: 6px 14px; border-radius: 10px; background: rgba(59, 165, 93, 0.12);
+  transition: color 0.3s, background 0.3s;
+}
+.tablo-timer.timer-urgent {
+  color: #ff5050; background: rgba(255, 80, 80, 0.12);
+  animation: tablo-pulse 1s infinite;
+}
+@keyframes tablo-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.tablo-tabs {
+  display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 40px 20px;
+  flex: 0 0 auto;
+}
+.tab-btn {
+  background: #171a21; border: 1px solid #262a33; color: #eef0f3;
+  border-radius: 12px; padding: 11px 16px; font-size: 15px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.tab-btn.active {
+  background: #1b3a2a; border-color: #3ba55d; color: #bdf0cf;
+}
+
+/* flex: 1 + min-height: 0 — стандартный приём, чтобы дочерний элемент
+   flex-контейнера занимал РОВНО оставшееся место, каким бы ни было реальное
+   количество строк вкладок или наличие/отсутствие таймера в шапке, вместо
+   вычисления через фиксированный calc(100% - магическое_число_px), который
+   рассинхронизировался при любом изменении высоты соседних элементов. */
+.tablo-chart-wrap {
+  position: relative;
+  flex: 1 1 auto; min-height: 0;
+  padding: 0 40px 30px;
+}
+#tablo-chart { width: 100% !important; height: 100% !important; }
+
+.tablo-techinfo-page {
+  height: 100%; overflow-y: auto; padding-right: 8px;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
+}
+.techinfo-title {
+  font-size: 22px; font-weight: 700; margin-bottom: 20px; color: #5b8def;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.techinfo-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 48px;
+  width: 100%; max-width: 900px;
+}
+.techinfo-item {
+  background: #171a21; border: 1px solid #262a33; border-radius: 12px;
+  padding: 16px 20px;
+}
+.techinfo-label { font-size: 15px; color: #8a8f99; margin-bottom: 6px; }
+.techinfo-explainer {
+  font-size: 15px; color: #8a8f99; line-height: 1.6; max-width: 900px;
+  margin-bottom: 14px;
+}
+.techinfo-explainer b { color: #eef0f3; }
+
+.techinfo-scale-table {
+  border-collapse: collapse; font-size: 14px; margin-bottom: 14px;
+}
+.techinfo-scale-table th, .techinfo-scale-table td {
+  padding: 6px 16px 6px 0; text-align: left; color: #8a8f99;
+}
+.techinfo-scale-table th { color: #5b8def; font-weight: 600; }
+.techinfo-scale-table td:first-child { color: #eef0f3; }
+.techinfo-value { font-size: 26px; font-weight: 700; color: #eef0f3; }
+.techinfo-value small { font-size: 16px; font-weight: 400; color: #8a8f99; }
+
+.tablo-marketing-wrap {
+  height: 100%; overflow-y: auto; padding-right: 8px;
+}
+.marketing-month-block { margin-bottom: 28px; }
+.marketing-month-title {
+  font-size: 22px; font-weight: 700; margin-bottom: 10px; color: #eef0f3;
+}
+.marketing-table {
+  width: 100%; border-collapse: collapse; font-size: 16px;
+}
+.marketing-table th, .marketing-table td {
+  padding: 10px 14px; text-align: left; border-bottom: 1px solid #262a33;
+}
+.marketing-table th {
+  color: #8a8f99; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.marketing-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.marketing-table tr:hover td { background: rgba(91, 141, 239, 0.08); }
+
+.tablo-empty {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 24px; color: #8a8f99; text-align: center; max-width: 600px;
+}
+.hidden { display: none !important; }

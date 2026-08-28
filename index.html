@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<!-- "Захвати рынок или закрой бизнес" — MVP v4.0 · от 28.08.2026 -->
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Захвати рынок или закрой бизнес</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="Style.css">
+</head>
+<body>
+
+  <div id="loading" class="screen center">
+    <div class="spinner"></div>
+    <p>Подключаемся…</p>
+  </div>
+
+  <div id="error-screen" class="screen center hidden">
+    <p id="error-text">Ошибка</p>
+  </div>
+
+  <!-- ============================= КАБИНЕТ ИГРОКА ============================= -->
+  <div id="player-app" class="screen hidden">
+
+    <header class="topbar">
+      <div>
+        <div class="restaurant-name" id="p-restaurant">—</div>
+        <div class="round-label" id="p-round">Месяц —</div>
+      </div>
+      <div class="cash-block">
+        <div class="cash-thb" id="p-cash-thb">— ฿</div>
+        <div class="cash-usd" id="p-cash-usd">$—</div>
+      </div>
+    </header>
+
+    <div id="p-timer" class="round-timer hidden">05:00</div>
+
+    <section id="onboarding-card" class="card hidden">
+      <h3>Добро пожаловать!</h3>
+      <p class="muted">Укажите своё имя и название заведения — это увидят остальные игроки
+        и ведущий. После этого откроется полный кабинет.</p>
+      <form id="onboarding-form">
+        <label>Ваше имя<input type="text" id="ob-name" required></label>
+        <label>Название заведения<input type="text" id="ob-restaurant" required></label>
+        <button type="submit" class="btn-primary">Начать игру</button>
+      </form>
+    </section>
+
+    <!-- ============================ БАНКРОТСТВО — ВЫБОР ПУТИ ============================ -->
+    <section id="bankrupt-card" class="card hidden">
+      <h3>Ваш бизнес обанкротился</h3>
+      <p class="muted">Касса ушла в минус — вести дела дальше в этом заведении нельзя. Выберите, что делать:</p>
+      <div class="career-actions">
+        <button class="btn-secondary" onclick="chooseCareerPath('civil_service', this)">Госслужба</button>
+        <button class="btn-secondary" onclick="chooseCareerPath('freelance', this)">Свободное плавание</button>
+        <button class="btn-secondary" onclick="toggleCustomProfessionForm('bankrupt')">Своя профессия</button>
+        <button class="btn-danger" onclick="chooseCareerPath('end', this)">Закончить участие в игре</button>
+      </div>
+      <div id="custom-profession-form-bankrupt" class="hidden custom-profession-form">
+        <input type="text" id="custom-profession-name-bankrupt" placeholder="Название профессии (например, «Бариста»)">
+        <button class="btn-primary" onclick="submitCustomProfession('bankrupt', this)">Подтвердить</button>
+      </div>
+      <p class="muted" id="bankrupt-details" style="margin-top:12px;"></p>
+    </section>
+
+    <!-- ============================ ВНЕ БИЗНЕСА: госслужба / фриланс / своя профессия ============================
+         Один контейнер на все три пути — содержимое собирается в App.js
+         под конкретный d.lifecycle, слишком разное, чтобы дублировать
+         разметку три раза почти без пользы. -->
+    <section id="offbusiness-card" class="card hidden">
+      <h3 id="offbusiness-title">—</h3>
+      <div id="offbusiness-content"></div>
+      <button class="btn-primary hidden" id="reopen-btn" onclick="reopenBusiness(this)">Открыть новое дело</button>
+    </section>
+
+    <!-- ============================ ВЫШЕЛ ИЗ ИГРЫ ============================ -->
+    <section id="left-card" class="card hidden">
+      <h3>Вы завершили участие в этой игре</h3>
+      <p class="muted">Спасибо за игру! Можете наблюдать за остальными на общем табло.</p>
+    </section>
+
+    <!-- ============================ ИТОГИ ПОСЛЕДНЕГО МЕСЯЦА: ПОЛНЫЙ П&У ============================
+         Вынесено ЗА ПРЕДЕЛЫ player-main специально: видна при ЛЮБОМ статусе
+         (активен / банкрот / в найме / вышел) — банкроту и наёмному тоже
+         важно разобрать, что привело к разорению, а не упираться в заглушку. -->
+    <section id="last-result-card" class="card hidden">
+      <!-- v3.2: заголовок теперь называет конкретный месяц. У игрока вне
+           бизнеса здесь показан последний месяц, когда он ВЁЛ дело, — и
+           подпись «прошлого месяца» на него врала тем сильнее, чем дольше
+           он был на госслужбе. -->
+      <h3 id="last-result-title">Итоги прошлого месяца</h3>
+
+      <div class="capacity-bar">
+        <div class="capacity-served" id="r-served-bar"></div>
+        <div class="capacity-lost" id="r-lost-bar"></div>
+      </div>
+      <div class="capacity-legend">
+        <span><i class="dot served"></i>обслужено: <b id="r-served">0</b></span>
+        <span><i class="dot lost"></i>потеряно: <b id="r-lost">0</b></span>
+      </div>
+
+      <table class="pl-table">
+        <tr><td>Выручка</td><td id="r-revenue">—</td></tr>
+        <tr><td>− Себестоимость</td><td id="r-cogs">—</td></tr>
+        <tr class="pl-subtotal"><td>= Валовая прибыль</td><td id="r-gross">—</td></tr>
+        <tr><td>− Аренда</td><td id="r-rent">—</td></tr>
+        <tr><td>− ФОТ</td><td id="r-payroll">—</td></tr>
+        <tr><td>− Доп. смены</td><td id="r-shiftcost">—</td></tr>
+        <tr><td>− Поддержание качества</td><td id="r-qupkeep">—</td></tr>
+        <tr><td>− Вложения в качество</td><td id="r-qinvest">—</td></tr>
+        <tr><td>− Маркетинг (всего)</td><td id="r-marketing">—</td></tr>
+        <tr class="pl-subtotal"><td>= EBIT (до процентов)</td><td id="r-ebit">—</td></tr>
+        <tr><td>− Проценты по кредиту</td><td id="r-interest">—</td></tr>
+        <tr class="pl-total"><td>= Прибыль</td><td id="r-profit">—</td></tr>
+        <tr><td>− Погашение тела кредита</td><td id="r-principal">—</td></tr>
+        <tr class="pl-total"><td>= Денежный поток</td><td id="r-cf">—</td></tr>
+        <tr><td>Доля рынка</td><td id="r-share">—</td></tr>
+      </table>
+
+      <details class="marketing-breakdown">
+        <summary>Расходы на маркетинг по каналам</summary>
+        <table class="pl-table">
+          <tr><td>SEO</td><td id="r-mk-seo">—</td></tr>
+          <tr><td>Промоутеры</td><td id="r-mk-promo">—</td></tr>
+          <tr><td>Google Карты</td><td id="r-mk-maps">—</td></tr>
+          <tr><td>Соцсети</td><td id="r-mk-social">—</td></tr>
+          <tr><td>Наружная реклама</td><td id="r-mk-outdoor">—</td></tr>
+          <tr><td>Партнёрская программа</td><td id="r-mk-affiliate">—</td></tr>
+        </table>
+      </details>
+    </section>
+
+    <div id="player-main">
+
+    <button class="btn-secondary" onclick="openTablo()" style="width:100%; margin-bottom:14px;">📊 Посмотреть табло</button>
+
+    <div id="bank-banner" class="bank-banner hidden" onclick="dismissBankBanner()"></div>
+
+    <section class="stats-row">
+      <div class="stat"><div class="stat-label">Бренд</div><div class="stat-value" id="p-brand">0.0</div></div>
+      <div class="stat"><div class="stat-label">Репутация</div><div class="stat-value" id="p-rep">1.0</div></div>
+      <div class="stat"><div class="stat-label">Качество</div><div class="stat-value" id="p-quality">0.0</div></div>
+      <div class="stat"><div class="stat-label">Ёмкость</div><div class="stat-value" id="p-capacity">—</div></div>
+    </section>
+
+    <!-- ============================ РЕШЕНИЕ НА МЕСЯЦ ============================ -->
+    <section id="decision-section" class="card">
+      <h3 id="decision-title">Решение на месяц</h3>
+
+      <div id="decision-waiting" class="hidden center-text">
+        <p>Решение отправлено. Ждём остальных игроков…</p>
+      </div>
+
+      <div id="decision-closed" class="hidden center-text">
+        <p>Приём решений сейчас закрыт. Обсуждайте стратегию — форма откроется, когда ведущий начнёт месяц.</p>
+      </div>
+
+      <form id="decision-form" class="hidden">
+        <label>Цена, ฿ за комплексный обед
+          <input type="number" id="f-price" step="10" required>
+        </label>
+
+        <h4 class="section-subhead">Маркетинг — распределите бюджет по каналам</h4>
+
+        <div class="channel-card">
+          <div class="channel-head"><span class="channel-name">SEO</span><span class="channel-badge" id="ch-seo-badge">—</span></div>
+          <p class="channel-blurb">Нужно вкладывать несколько месяцев подряд. Потом эффект стабильный — держится сам по себе, без постоянных трат.</p>
+          <input type="number" id="f-seo" step="1000" value="0" placeholder="฿ в этом месяце">
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-head"><span class="channel-name">Промоутеры</span><span class="channel-badge">без памяти</span></div>
+          <p class="channel-blurb">Результат сразу — но эффект есть только в месяц, когда платите. Пропустили месяц — эффект пропал.</p>
+          <input type="number" id="f-promo" step="1000" value="0" placeholder="฿ в этом месяце">
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-head"><span class="channel-name">Google Карты</span><span class="channel-badge" id="ch-maps-badge">—</span></div>
+          <p class="channel-blurb">Эффект появляется не сразу, а со следующего месяца — «период развития». Дальше нарастает и медленно угасает.</p>
+          <input type="number" id="f-maps" step="1000" value="0" placeholder="฿ в этом месяце">
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-head"><span class="channel-name">Соцсети</span><span class="channel-badge" id="ch-social-badge">—</span></div>
+          <p class="channel-blurb">Накопительный эффект в этом же месяце, но забывается быстрее остальных — нужна регулярность.</p>
+          <input type="number" id="f-social" step="1000" value="0" placeholder="฿ в этом месяце">
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-head"><span class="channel-name">Наружная реклама</span><span class="channel-badge" id="ch-outdoor-badge">—</span></div>
+          <p class="channel-blurb">Разовое размещение (минимум 40 000 ฿) держит эффект ровно 4 месяца, потом резко обнуляется — без плавного затухания.</p>
+          <input type="number" id="f-outdoor" step="1000" value="0" placeholder="฿ разово, ≥40 000">
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-head"><span class="channel-name">Партнёрская программа</span><span class="channel-badge" id="ch-affiliate-badge">—</span></div>
+          <p class="channel-blurb">Не влияет на приток клиентов — увеличивает выручку с уже существующих продаж (доп. доход с части продаж), пока платите ежемесячный взнос.</p>
+          <input type="number" id="f-affiliate" step="1000" value="0" placeholder="฿ в этом месяце">
+        </div>
+
+        <h4 class="section-subhead">Персонал и формат</h4>
+        <p class="muted" id="staff-info">Одна смена: — клиентов ёмкости, — ฿/мес</p>
+        <label>Формат заведения
+          <select id="f-shifts">
+            <option value="-1">Сократить на 1 смену</option>
+            <option value="0" selected>Без изменений</option>
+            <option value="1">Добавить 1 смену</option>
+          </select>
+        </label>
+
+        <label>Вложить в качество, ฿ (разово)
+          <input type="number" id="f-quality" step="10000" value="0">
+        </label>
+
+        <button type="submit" class="btn-primary">Отправить решение</button>
+      </form>
+    </section>
+
+    <!-- ============================ БАНК ============================ -->
+    <section class="card">
+      <h3>Банк</h3>
+      <table class="pl-table">
+        <tr><td>Задолженность</td><td id="bank-balance">—</td></tr>
+        <tr><td>Ставка</td><td id="bank-rate">—</td></tr>
+        <tr><td>Плановый платёж (тело + %)</td><td id="bank-payment">—</td></tr>
+        <tr><td>Осталось платежей</td><td id="bank-term">—</td></tr>
+        <tr><td>Доступно к получению</td><td id="bank-available">—</td></tr>
+      </table>
+      <p class="muted">Кредитный лимит открывается автоматически по итогам месяца — считать ничего не нужно.</p>
+
+      <div id="loan-request-block" class="hidden">
+        <div class="repay-block">
+          <input type="number" id="loan-amount" placeholder="Сумма кредита, ฿" step="1000">
+          <button class="btn-secondary" onclick="requestLoan(this)">Взять кредит</button>
+        </div>
+      </div>
+
+      <div class="repay-block">
+        <input type="number" id="repay-amount" placeholder="Сумма досрочного погашения, ฿" step="1000">
+        <button class="btn-secondary" onclick="repayLoan(this)">Погасить досрочно</button>
+      </div>
+    </section>
+
+    <!-- ============================ ПЕРЕВОД ДЕНЕГ ============================ -->
+    <section class="card">
+      <h3>Перевести деньги другому игроку</h3>
+      <p class="muted">В пределах вашей текущей кассы. Полезно для сговоров, помощи союзнику или выкупа доли.</p>
+      <label>Получатель
+        <select id="transfer-to"></select>
+      </label>
+      <div class="repay-block">
+        <input type="number" id="transfer-amount" placeholder="Сумма, ฿" step="1000">
+        <button class="btn-secondary" onclick="transferMoney(this)">Перевести</button>
+      </div>
+    </section>
+
+    <!-- ============================ МОИ СОТРУДНИКИ (своя профессия у других игроков) ============================ -->
+    <section id="my-employees-card" class="card hidden">
+      <h3>Мои сотрудники</h3>
+      <div id="my-employees-list"></div>
+    </section>
+
+    <!-- ============================ ДОБРОВОЛЬНАЯ СМЕНА ДЕЯТЕЛЬНОСТИ ============================ -->
+    <section class="card">
+      <details>
+        <summary style="cursor:pointer; font-weight:600;">Закрыть дело и сменить деятельность</summary>
+        <p class="muted" style="margin-top:10px;">Заберёте кассу за вычетом непогашенного кредита (если кредит
+          больше кассы — выходите без долга, это риск банка). Дело закроется насовсем — вернуться можно только
+          с новым, свежим бизнесом.</p>
+        <div class="career-actions">
+          <button class="btn-secondary" onclick="chooseCareerPath('civil_service', this)">Госслужба</button>
+          <button class="btn-secondary" onclick="chooseCareerPath('freelance', this)">Свободное плавание</button>
+          <button class="btn-secondary" onclick="toggleCustomProfessionForm('active')">Своя профессия</button>
+          <button class="btn-danger" onclick="chooseCareerPath('end', this)">Закончить участие в игре</button>
+        </div>
+        <div id="custom-profession-form-active" class="hidden custom-profession-form">
+          <input type="text" id="custom-profession-name-active" placeholder="Название профессии">
+          <button class="btn-primary" onclick="submitCustomProfession('active', this)">Подтвердить</button>
+        </div>
+      </details>
+    </section>
+
+    </div><!-- /player-main -->
+  </div>
+
+  <!-- ============================ КАБИНЕТ АДМИНИСТРАТОРА ============================ -->
+  <div id="admin-app" class="screen hidden">
+    <header class="topbar">
+      <div>
+        <div class="restaurant-name">Пульт ведущего</div>
+        <div class="round-label" id="a-round">Месяц —</div>
+      </div>
+      <button class="btn-secondary small" onclick="loadAdminMonitor(true)">Обновить</button>
+    </header>
+
+    <div id="a-timer" class="round-timer hidden">05:00</div>
+
+    <section class="card">
+      <div class="admin-actions">
+        <button class="btn-primary" onclick="adminOpenRound(this)">Открыть ввод решений</button>
+        <button class="btn-primary" onclick="adminCalculateRound(this)">Рассчитать месяц</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Игроки</h3>
+      <table class="monitor-table" id="admin-monitor-table">
+        <thead>
+          <!-- v3.2: у игрока вне бизнеса касса всегда 0, а деньги лежат в
+               накоплениях — в этой колонке теперь показывается та сумма,
+               которая у него реально есть, с пометкой «накопления». -->
+          <tr><th>Заведение</th><th>Касса / накопления</th><th>Бренд</th><th>Ёмкость</th><th>Банк</th><th>Статус</th><th>Ход</th><th>Подкл.</th></tr>
+        </thead>
+        <tbody id="admin-monitor-body"></tbody>
+      </table>
+    </section>
+
+    <section class="card danger-zone">
+      <h3>Опасная зона</h3>
+      <p class="muted">Полностью очищает игроков, решения, историю месяцев и банковский журнал —
+        начинать месяц 1 с чистого листа. Настройки экономики в Config не затрагиваются.</p>
+
+      <button class="btn-danger" id="reset-reveal-btn" onclick="revealResetConfirm()">Начать игру заново</button>
+
+      <div id="reset-confirm-block" class="hidden">
+        <p class="muted">Чтобы подтвердить, наберите код текущей игры (лист Config → GAME_CODE):</p>
+        <input type="text" id="reset-confirm-input" placeholder="Код игры">
+        <div class="reset-confirm-actions">
+          <button class="btn-danger" onclick="confirmResetGame(this)">Подтвердить сброс</button>
+          <button class="btn-secondary" onclick="cancelResetConfirm()">Отмена</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="App.js"></script>
+</body>
+</html>
