@@ -1,10 +1,10 @@
-// "Захвати рынок или закрой бизнес" — MVP v4.0 · от 28.08.2026
+// "Захвати рынок или закрой бизнес" — MVP v4.2 · от 28.08.2026
 // Табло для проектора/ТВ. Обращается к Code.gs через fetch() (только GET).
 
 // ⚠️ Та же ссылка, что и в App.js. Меняется в двух местах при новом деплое.
 // Те же два значения, что и в App.js. Заполняются один раз.
-var EXEC_URL = 'https://xgojmizawllcfbfojbex.supabase.co/functions/v1/game';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhnb2ptaXphd2xsY2ZiZm9qYmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4OTU5NTksImV4cCI6MjEwMzQ3MTk1OX0.X9yCnRspwyFtbd-kzP152WVFfttIzdHDjH3i10fUTfU';
+var EXEC_URL = 'ВСТАВЬТЕ_СЮДА_АДРЕС_ФУНКЦИИ_GAME';
+var SUPABASE_KEY = 'ВСТАВЬТЕ_СЮДА_PUBLISHABLE_КЛЮЧ';
 
 var METRIC_LABELS = {
   profit: 'Прибыль / доход за месяц, ฿',

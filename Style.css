@@ -1,4 +1,4 @@
-/* "Захвати рынок или закрой бизнес" — MVP v4.0 · от 28.08.2026 */
+/* "Захвати рынок или закрой бизнес" — MVP v4.2 · от 28.08.2026 */
 :root {
     --bg: #0f1115;
     --card: #171a21;
@@ -242,3 +242,39 @@
   }
   .monitor-table td.ok { color: var(--accent); }
   .monitor-table td.pending { color: var(--warn); }
+
+/* ---------------------------------------- v4.0: подсказки под полями ввода */
+/* Раньше браузер молча отказывался принимать значение из-за атрибута step,
+   и игрок не понимал, почему кнопка не срабатывает. Теперь причина всегда
+   написана словами прямо под полем. */
+.field-hint { font-size: 11px; line-height: 1.35; margin: 3px 0 8px; min-height: 1px; }
+.field-hint-error { color: var(--danger); }
+.field-hint-warn  { color: var(--warn); }
+.field-hint-ok    { color: var(--muted); }
+
+input.input-invalid { border-color: var(--danger); }
+
+.spend-total {
+  margin: 10px 0 4px; padding: 8px 10px; border-radius: 8px;
+  background: var(--card); border: 1px solid var(--border);
+  font-size: 13px; font-weight: 600; color: var(--muted);
+}
+.spend-total-over { color: var(--danger); border-color: var(--danger); }
+
+/* Пульт государства и настройки партии */
+.config-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 12px; }
+@media (max-width: 420px) { .config-grid { grid-template-columns: 1fr; } }
+
+#admin-state-card .btn-row, #admin-config-card .btn-row { margin-top: 10px; }
+
+/* ---------------------------------------- v4.2: состав игроков */
+/* Двадцать полей должны помещаться на экране телефона, не превращаясь
+   в бесконечную простыню — поэтому сетка, а не столбик. */
+.roster-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 10px 0; }
+@media (min-width: 560px) { .roster-grid { grid-template-columns: repeat(4, 1fr); } }
+
+.roster-input { width: 100%; margin: 0; font-size: 13px; padding: 8px 10px; }
+
+.warn-text { color: var(--danger); font-weight: 600; margin: 10px 0; font-size: 13px; }
+.reset-confirm-actions { display: flex; gap: 8px; }
+.reset-confirm-actions button { flex: 1; }

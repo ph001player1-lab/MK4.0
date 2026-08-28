@@ -1,4 +1,4 @@
-// "Захвати рынок или закрой бизнес" — MVP v4.0 · от 28.08.2026
+// "Захвати рынок или закрой бизнес" — MVP v4.2 · от 28.08.2026
 // Кабинет игрока и администратора. Обращается к Code.gs через fetch()
 // (только GET — см. пояснение внутри apiPost ниже).
 
@@ -13,8 +13,8 @@
 // Публичный ключ НЕ секрет: он по замыслу уезжает в браузер каждому
 // игроку. Красть им нечего — RLS в базе запрещает этому ключу всё, а
 // решает, кому что показать, сама Edge Function.
-var EXEC_URL = 'https://xgojmizawllcfbfojbex.supabase.co/functions/v1/game';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhnb2ptaXphd2xsY2ZiZm9qYmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4OTU5NTksImV4cCI6MjEwMzQ3MTk1OX0.X9yCnRspwyFtbd-kzP152WVFfttIzdHDjH3i10fUTfU';
+var EXEC_URL = 'ВСТАВЬТЕ_СЮДА_АДРЕС_ФУНКЦИИ_GAME';
+var SUPABASE_KEY = 'ВСТАВЬТЕ_СЮДА_PUBLISHABLE_КЛЮЧ';
 
 // Изредка Apps Script (через распределённую сеть edge-узлов Google) на
 // долю секунды отдаёт HTML-заглушку вместо JSON — особенно заметно при
@@ -415,6 +415,7 @@ var CAREER_LABELS = {
 };
 
 function renderPlayerDashboard(d) {
+  setTimeout(function () { attachDecisionValidation(); validateDecisionForm(); }, 0);
   if (!d.ok) { showError('Ошибка загрузки данных.'); return; }
   lastDashboard = d;
 
@@ -1134,6 +1135,244 @@ var STATUS_LABELS = {
   left: 'вышел из игры'
 };
 
+
+// ==================== ЖИВАЯ ПРОВЕРКА ВВОДА (v4.0) ====================
+//
+// Раньше поля имели HTML-атрибут step: у цены step="10", у рекламы
+// step="1000". Браузер из-за этого молча отказывался отправлять форму,
+// если ввели 555 или 100 — не показывая внятной причины. Выглядело как
+// «глючит». Теперь шаг снят, а проверка делается своя: с понятным
+// текстом, прямо под полем, по мере ввода.
+//
+// Принцип тот же, что и на сервере: плохое значение ОТКЛОНЯЕМ и
+// объясняем, а не подгоняем молча под ближайшее допустимое.
+
+var DECISION_SPEND_FIELDS = [
+  { id: 'f-seo',       label: 'SEO' },
+  { id: 'f-promo',     label: 'Промоутеры' },
+  { id: 'f-maps',      label: 'Google Карты' },
+  { id: 'f-social',    label: 'Соцсети' },
+  { id: 'f-outdoor',   label: 'Наружная реклама' },
+  { id: 'f-affiliate', label: 'Партнёрка' },
+  { id: 'f-quality',   label: 'Качество' }
+];
+
+function fieldHint_(inputId, text, kind) {
+  var input = document.getElementById(inputId);
+  if (!input) return;
+  var hintId = 'hint-' + inputId;
+  var hint = document.getElementById(hintId);
+  if (!hint) {
+    hint = document.createElement('div');
+    hint.id = hintId;
+    hint.className = 'field-hint';
+    input.parentNode.insertBefore(hint, input.nextSibling);
+  }
+  hint.textContent = text || '';
+  hint.className = 'field-hint' + (text ? ' field-hint-' + (kind || 'error') : '');
+  input.classList.toggle('input-invalid', kind === 'error' && !!text);
+}
+
+/** Возвращает список проблем. Пустой список — можно отправлять. */
+function validateDecisionForm() {
+  var problems = [];
+  if (!lastDashboard || !lastDashboard.game) return problems;
+
+  var floor = lastDashboard.game.priceFloor.thb;
+  var ceiling = lastDashboard.game.priceCeiling.thb;
+  var cash = lastDashboard.player.cash.thb;
+
+  var priceEl = document.getElementById('f-price');
+  var priceRaw = priceEl ? priceEl.value.trim() : '';
+  var price = Number(priceRaw);
+
+  if (priceRaw === '') {
+    fieldHint_('f-price', 'Укажите цену.', 'error');
+    problems.push('цена не указана');
+  } else if (!isFinite(price) || price < 0) {
+    fieldHint_('f-price', 'Цена должна быть числом.', 'error');
+    problems.push('цена не число');
+  } else if (price < floor) {
+    fieldHint_('f-price', 'Не ниже ' + floor.toLocaleString('ru-RU') + ' ฿.', 'error');
+    problems.push('цена ниже минимума');
+  } else if (price > ceiling) {
+    fieldHint_('f-price', 'Не выше ' + ceiling.toLocaleString('ru-RU') + ' ฿.', 'error');
+    problems.push('цена выше максимума');
+  } else {
+    // Любое целое число в диапазоне допустимо — кратность больше не требуется.
+    fieldHint_('f-price', 'Допустимо: от ' + floor.toLocaleString('ru-RU') +
+      ' до ' + ceiling.toLocaleString('ru-RU') + ' ฿.', 'ok');
+  }
+
+  var total = 0;
+  DECISION_SPEND_FIELDS.forEach(function (f) {
+    var el = document.getElementById(f.id);
+    if (!el) return;
+    var raw = el.value.trim();
+    var v = raw === '' ? 0 : Number(raw);
+
+    if (!isFinite(v)) {
+      fieldHint_(f.id, 'Только числа.', 'error');
+      problems.push(f.label + ': не число');
+      return;
+    }
+    if (v < 0) {
+      fieldHint_(f.id, 'Отрицательных трат не бывает.', 'error');
+      problems.push(f.label + ': отрицательное значение');
+      return;
+    }
+    if (v !== Math.floor(v)) {
+      fieldHint_(f.id, 'Только целые баты, без копеек.', 'error');
+      problems.push(f.label + ': дробное значение');
+      return;
+    }
+    total += v;
+    fieldHint_(f.id, '', 'ok');
+  });
+
+  // Наружная реклама — единственный канал с порогом входа: меньше
+  // минимума деньги просто сгорят, ничего не дав. Предупреждаем, но не
+  // запрещаем: это осознанный выбор игрока, а не ошибка ввода.
+  var outdoor = Number((document.getElementById('f-outdoor') || {}).value || 0);
+  var minOutdoor = 40000;
+  if (outdoor > 0 && outdoor < minOutdoor) {
+    fieldHint_('f-outdoor', 'Меньше ' + minOutdoor.toLocaleString('ru-RU') +
+      ' ฿ размещение не выкупается — деньги спишутся впустую.', 'warn');
+  }
+
+  var totalEl = document.getElementById('spend-total');
+  if (totalEl) {
+    totalEl.textContent = 'Итого трат: ' + total.toLocaleString('ru-RU') + ' ฿ из ' +
+      cash.toLocaleString('ru-RU') + ' ฿ в кассе';
+    totalEl.className = 'spend-total' + (total > cash ? ' spend-total-over' : '');
+  }
+  if (total > cash) problems.push('трат больше, чем в кассе');
+
+  return problems;
+}
+
+function attachDecisionValidation() {
+  var ids = ['f-price'].concat(DECISION_SPEND_FIELDS.map(function (f) { return f.id; }));
+  ids.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el || el.dataset.validationBound) return;
+    el.dataset.validationBound = '1';
+    el.addEventListener('input', function () { validateDecisionForm(); });
+  });
+}
+
+// ==================== ПУЛЬТ ГОСУДАРСТВА (v4.0) ====================
+
+function fillStatePlayerSelect(players) {
+  var sel = document.getElementById('state-player');
+  if (!sel) return;
+  var prev = sel.value;
+  sel.innerHTML = players.map(function (p) {
+    var where = p.offBusiness ? ' — накопления' : '';
+    return '<option value="' + p.username + '">' + p.restaurant + where + '</option>';
+  }).join('');
+  if (prev) sel.value = prev;
+}
+
+function applyStateAdjust(sign, btn) {
+  var username = (document.getElementById('state-player') || {}).value;
+  var raw = (document.getElementById('state-amount') || {}).value;
+  var reason = (document.getElementById('state-reason') || {}).value || '';
+  var hint = document.getElementById('state-hint');
+
+  var amount = Math.abs(Math.floor(Number(raw)));
+  if (!username) { hint.textContent = 'Выберите игрока.'; hint.className = 'field-hint field-hint-error'; return; }
+  if (!isFinite(amount) || amount <= 0) {
+    hint.textContent = 'Укажите сумму больше нуля.';
+    hint.className = 'field-hint field-hint-error';
+    return;
+  }
+  if (!reason.trim()) {
+    hint.textContent = 'Напишите причину — игрок увидит её в уведомлении.';
+    hint.className = 'field-hint field-hint-error';
+    return;
+  }
+
+  withButtonLoading(btn, sign < 0 ? 'Штрафуем…' : 'Начисляем…', function () {
+    return apiPost('adminAdjust', myUsername, {
+      playerUsername: username, amount: sign * amount, reason: reason
+    }).then(function (res) {
+      if (res.ok) {
+        hint.textContent = (sign < 0 ? 'Штраф ' : 'Субсидия ') + amount.toLocaleString('ru-RU') +
+          ' ฿ проведён' + (sign < 0 ? '' : 'а') + '.';
+        hint.className = 'field-hint field-hint-ok';
+        document.getElementById('state-amount').value = '';
+        document.getElementById('state-reason').value = '';
+      } else {
+        hint.textContent = 'Не удалось: ' + res.error;
+        hint.className = 'field-hint field-hint-error';
+      }
+    }).catch(function (err) {
+      hint.textContent = 'Ошибка: ' + err.message;
+      hint.className = 'field-hint field-hint-error';
+    });
+  });
+}
+
+// ==================== НАСТРОЙКИ ПАРТИИ (v4.0) ====================
+
+var CONFIG_FIELDS = ['ROUND_DURATION_MIN', 'RENT', 'PAYROLL_BASE', 'TOTAL_ROUNDS',
+                     'CIVIL_SERVICE_SALARY', 'REOPEN_THRESHOLD', 'P_REF', 'MARKET_SIZE_PER_PLAYER'];
+
+function fillConfigForm(cfg) {
+  if (!cfg) return;
+  CONFIG_FIELDS.forEach(function (key) {
+    var el = document.getElementById('cfg-' + key);
+    // Не затираем поле, пока в нём стоит курсор: иначе фоновый опрос
+    // каждые 8 секунд стирал бы то, что вы печатаете.
+    if (el && cfg[key] !== undefined && document.activeElement !== el) el.value = cfg[key];
+  });
+}
+
+function saveGameConfig(btn) {
+  var updates = {};
+  var hint = document.getElementById('config-hint');
+
+  for (var i = 0; i < CONFIG_FIELDS.length; i++) {
+    var key = CONFIG_FIELDS[i];
+    var el = document.getElementById('cfg-' + key);
+    if (!el || el.value.trim() === '') continue;
+    var v = Number(el.value);
+    if (!isFinite(v)) {
+      hint.textContent = 'Поле «' + key + '» — не число.';
+      hint.className = 'field-hint field-hint-error';
+      return;
+    }
+    updates[key] = v;
+  }
+
+  withButtonLoading(btn, 'Сохраняем…', function () {
+    return apiPost('adminUpdateConfig', myUsername, { updates: JSON.stringify(updates) })
+      .then(function (res) {
+        if (!res.ok) {
+          hint.textContent = 'Не удалось: ' + res.error;
+          hint.className = 'field-hint field-hint-error';
+          return;
+        }
+        var rejectedKeys = Object.keys(res.rejected || {});
+        if (rejectedKeys.length) {
+          hint.textContent = 'Отклонено: ' + rejectedKeys.map(function (k) {
+            return k + ' (' + res.rejected[k] + ')';
+          }).join('; ');
+          hint.className = 'field-hint field-hint-error';
+        } else {
+          hint.textContent = 'Сохранено: ' + Object.keys(res.applied || {}).length +
+            ' параметр(ов). Действуют со следующего открытого месяца.';
+          hint.className = 'field-hint field-hint-ok';
+        }
+      })
+      .catch(function (err) {
+        hint.textContent = 'Ошибка: ' + err.message;
+        hint.className = 'field-hint field-hint-error';
+      });
+  });
+}
+
 function renderAdminMonitor(d) {
   if (!d.ok) { showError('Ошибка загрузки данных.'); return; }
   document.getElementById('a-round').textContent = 'Месяц ' + d.round.number + ' из ' + d.round.totalRounds +
@@ -1167,6 +1406,10 @@ function renderAdminMonitor(d) {
     body.appendChild(tr);
   });
 
+  fillStatePlayerSelect(d.players);
+  fillConfigForm(d.config);
+  fillRoster(d.players);
+
   startCountdown(d.round.status === 'open' ? d.round.deadline : null, ['a-timer']);
 }
 
@@ -1199,6 +1442,12 @@ function adminCalculateRound(btn) {
 
 // ------------------------------------------------------------ СБРОС ИГРЫ
 
+// ==================== СБРОС ПАРТИИ (v4.2) ====================
+//
+// Раньше требовалось вручную ввести код игры. На живой сессии это лишняя
+// возня у проектора, поэтому теперь подтверждение — вторым нажатием.
+// Защита от случайного тычка остаётся: одной кнопкой ничего не сбросится.
+
 function revealResetConfirm() {
   document.getElementById('reset-confirm-block').classList.remove('hidden');
   document.getElementById('reset-reveal-btn').classList.add('hidden');
@@ -1207,25 +1456,104 @@ function revealResetConfirm() {
 function cancelResetConfirm() {
   document.getElementById('reset-confirm-block').classList.add('hidden');
   document.getElementById('reset-reveal-btn').classList.remove('hidden');
-  document.getElementById('reset-confirm-input').value = '';
+  var hint = document.getElementById('reset-hint');
+  if (hint) { hint.textContent = ''; hint.className = 'field-hint'; }
 }
 
-function confirmResetGame(btn) {
-  var text = document.getElementById('reset-confirm-input').value;
-  if (!text) { alert('Введите код игры (см. лист Config → GAME_CODE).'); return; }
+function confirmReset(btn) {
+  var hint = document.getElementById('reset-hint');
   withButtonLoading(btn, 'Сбрасываем…', function () {
-    return apiPost('adminResetGame', myUsername, { confirmText: text })
+    return apiPost('adminResetGame', myUsername, { confirm: 'yes' })
       .then(function (res) {
         if (res.ok) {
-          alert('Игра сброшена. Можно начинать заново с месяца 1.');
           cancelResetConfirm();
-          loadAdminMonitor();
+          hint.textContent = 'Партия сброшена. Можно открывать первый месяц.';
+          hint.className = 'field-hint field-hint-ok';
         } else {
-          var messages = { confirmation_mismatch: 'Код игры не совпадает — сброс отменён.' };
-          alert(messages[res.error] || ('Не удалось сбросить: ' + res.error));
+          hint.textContent = 'Не удалось сбросить: ' + res.error;
+          hint.className = 'field-hint field-hint-error';
         }
       })
-      .catch(function (err) { alert('Ошибка: ' + err.message); });
+      .catch(function (err) {
+        hint.textContent = 'Ошибка: ' + err.message;
+        hint.className = 'field-hint field-hint-error';
+      });
+  });
+}
+
+// ==================== СОСТАВ ИГРОКОВ (v4.2) ====================
+
+var ROSTER_SLOTS = 20;
+var rosterBuilt = false;
+
+function buildRosterGrid() {
+  if (rosterBuilt) return;
+  var grid = document.getElementById('roster-grid');
+  if (!grid) return;
+  var html = '';
+  for (var i = 0; i < ROSTER_SLOTS; i++) {
+    html += '<input type="text" class="roster-input" id="roster-' + i +
+      '" maxlength="40" autocomplete="off" spellcheck="false" placeholder="ник ' + (i + 1) + '">';
+  }
+  grid.innerHTML = html;
+  rosterBuilt = true;
+}
+
+function fillRoster(players) {
+  buildRosterGrid();
+  // Не затираем поля, пока в них печатают: фоновый опрос идёт каждые
+  // 8 секунд и иначе стирал бы ввод на полуслове.
+  var grid = document.getElementById('roster-grid');
+  if (!grid || grid.contains(document.activeElement)) return;
+
+  for (var i = 0; i < ROSTER_SLOTS; i++) {
+    var el = document.getElementById('roster-' + i);
+    if (el) el.value = players[i] ? players[i].username : '';
+  }
+}
+
+function savePlayersRoster(btn) {
+  var hint = document.getElementById('roster-hint');
+  var list = [];
+  for (var i = 0; i < ROSTER_SLOTS; i++) {
+    var el = document.getElementById('roster-' + i);
+    if (el && el.value.trim()) list.push(el.value.trim());
+  }
+  if (!list.length) {
+    hint.textContent = 'Впишите хотя бы одного игрока.';
+    hint.className = 'field-hint field-hint-error';
+    return;
+  }
+
+  withButtonLoading(btn, 'Сохраняем…', function () {
+    return apiPost('adminSetPlayers', myUsername, { usernames: JSON.stringify(list) })
+      .then(function (res) {
+        if (!res.ok) {
+          hint.textContent = 'Не удалось: ' + res.error;
+          hint.className = 'field-hint field-hint-error';
+          return;
+        }
+        var parts = ['В партии игроков: ' + res.total + '.'];
+        if (res.added && res.added.length) parts.push('Добавлены: ' + res.added.join(', ') + '.');
+        if (res.removed && res.removed.length) parts.push('Убраны: ' + res.removed.join(', ') + '.');
+
+        var kept = Object.keys(res.kept || {});
+        if (kept.length) parts.push('Оставлены (' + res.kept[kept[0]] + '): ' + kept.join(', ') + '.');
+
+        var skipped = Object.keys(res.skipped || {});
+        if (skipped.length) {
+          parts.push('Пропущены: ' + skipped.map(function (k) {
+            return k + ' — ' + res.skipped[k];
+          }).join('; ') + '.');
+        }
+
+        hint.textContent = parts.join(' ');
+        hint.className = 'field-hint field-hint-' + (skipped.length || kept.length ? 'warn' : 'ok');
+      })
+      .catch(function (err) {
+        hint.textContent = 'Ошибка: ' + err.message;
+        hint.className = 'field-hint field-hint-error';
+      });
   });
 }
 

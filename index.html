@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<!-- "Захвати рынок или закрой бизнес" — MVP v4.0 · от 28.08.2026 -->
+<!-- "Захвати рынок или закрой бизнес" — MVP v4.2 · от 28.08.2026 -->
 <html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>Захвати рынок или закрой бизнес</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="Style.css">
+  <link rel="stylesheet" href="Style.css?v=42">
 </head>
 <body>
 
@@ -157,7 +157,8 @@
 
       <form id="decision-form" class="hidden">
         <label>Цена, ฿ за комплексный обед
-          <input type="number" id="f-price" step="10" required>
+          <input type="number" id="f-price" step="1" min="0" inputmode="numeric" required>
+          <div class="field-hint" id="hint-price"></div>
         </label>
 
         <h4 class="section-subhead">Маркетинг — распределите бюджет по каналам</h4>
@@ -165,37 +166,37 @@
         <div class="channel-card">
           <div class="channel-head"><span class="channel-name">SEO</span><span class="channel-badge" id="ch-seo-badge">—</span></div>
           <p class="channel-blurb">Нужно вкладывать несколько месяцев подряд. Потом эффект стабильный — держится сам по себе, без постоянных трат.</p>
-          <input type="number" id="f-seo" step="1000" value="0" placeholder="฿ в этом месяце">
+          <input type="number" id="f-seo" step="1" min="0" inputmode="numeric" value="0" placeholder="฿ в этом месяце">
         </div>
 
         <div class="channel-card">
           <div class="channel-head"><span class="channel-name">Промоутеры</span><span class="channel-badge">без памяти</span></div>
           <p class="channel-blurb">Результат сразу — но эффект есть только в месяц, когда платите. Пропустили месяц — эффект пропал.</p>
-          <input type="number" id="f-promo" step="1000" value="0" placeholder="฿ в этом месяце">
+          <input type="number" id="f-promo" step="1" min="0" inputmode="numeric" value="0" placeholder="฿ в этом месяце">
         </div>
 
         <div class="channel-card">
           <div class="channel-head"><span class="channel-name">Google Карты</span><span class="channel-badge" id="ch-maps-badge">—</span></div>
           <p class="channel-blurb">Эффект появляется не сразу, а со следующего месяца — «период развития». Дальше нарастает и медленно угасает.</p>
-          <input type="number" id="f-maps" step="1000" value="0" placeholder="฿ в этом месяце">
+          <input type="number" id="f-maps" step="1" min="0" inputmode="numeric" value="0" placeholder="฿ в этом месяце">
         </div>
 
         <div class="channel-card">
           <div class="channel-head"><span class="channel-name">Соцсети</span><span class="channel-badge" id="ch-social-badge">—</span></div>
           <p class="channel-blurb">Накопительный эффект в этом же месяце, но забывается быстрее остальных — нужна регулярность.</p>
-          <input type="number" id="f-social" step="1000" value="0" placeholder="฿ в этом месяце">
+          <input type="number" id="f-social" step="1" min="0" inputmode="numeric" value="0" placeholder="฿ в этом месяце">
         </div>
 
         <div class="channel-card">
           <div class="channel-head"><span class="channel-name">Наружная реклама</span><span class="channel-badge" id="ch-outdoor-badge">—</span></div>
           <p class="channel-blurb">Разовое размещение (минимум 40 000 ฿) держит эффект ровно 4 месяца, потом резко обнуляется — без плавного затухания.</p>
-          <input type="number" id="f-outdoor" step="1000" value="0" placeholder="฿ разово, ≥40 000">
+          <input type="number" id="f-outdoor" step="1" min="0" inputmode="numeric" value="0" placeholder="฿ разово, ≥40 000">
         </div>
 
         <div class="channel-card">
           <div class="channel-head"><span class="channel-name">Партнёрская программа</span><span class="channel-badge" id="ch-affiliate-badge">—</span></div>
           <p class="channel-blurb">Не влияет на приток клиентов — увеличивает выручку с уже существующих продаж (доп. доход с части продаж), пока платите ежемесячный взнос.</p>
-          <input type="number" id="f-affiliate" step="1000" value="0" placeholder="฿ в этом месяце">
+          <input type="number" id="f-affiliate" step="1" min="0" inputmode="numeric" value="0" placeholder="฿ в этом месяце">
         </div>
 
         <h4 class="section-subhead">Персонал и формат</h4>
@@ -209,7 +210,9 @@
         </label>
 
         <label>Вложить в качество, ฿ (разово)
-          <input type="number" id="f-quality" step="10000" value="0">
+          <input type="number" id="f-quality" step="1" min="0" inputmode="numeric" value="0">
+          <div class="field-hint" id="hint-f-quality"></div>
+          <div class="spend-total" id="spend-total"></div>
         </label>
 
         <button type="submit" class="btn-primary">Отправить решение</button>
@@ -230,13 +233,13 @@
 
       <div id="loan-request-block" class="hidden">
         <div class="repay-block">
-          <input type="number" id="loan-amount" placeholder="Сумма кредита, ฿" step="1000">
+          <input type="number" id="loan-amount" placeholder="Сумма кредита, ฿" step="1" min="0" inputmode="numeric">
           <button class="btn-secondary" onclick="requestLoan(this)">Взять кредит</button>
         </div>
       </div>
 
       <div class="repay-block">
-        <input type="number" id="repay-amount" placeholder="Сумма досрочного погашения, ฿" step="1000">
+        <input type="number" id="repay-amount" placeholder="Сумма досрочного погашения, ฿" step="1" min="0" inputmode="numeric">
         <button class="btn-secondary" onclick="repayLoan(this)">Погасить досрочно</button>
       </div>
     </section>
@@ -249,7 +252,7 @@
         <select id="transfer-to"></select>
       </label>
       <div class="repay-block">
-        <input type="number" id="transfer-amount" placeholder="Сумма, ฿" step="1000">
+        <input type="number" id="transfer-amount" placeholder="Сумма, ฿" step="1" min="0" inputmode="numeric">
         <button class="btn-secondary" onclick="transferMoney(this)">Перевести</button>
       </div>
     </section>
@@ -315,24 +318,91 @@
       </table>
     </section>
 
+    <!-- ======================= ПУЛЬТ ГОСУДАРСТВА (v4.0) ======================= -->
+    <section class="card" id="admin-state-card">
+      <h3>Государство: штраф и субсидия</h3>
+      <p class="muted">Деньги ложатся туда, где игрок их реально держит: активному в кассу,
+        вне бизнеса — в накопления. Игрок получит уведомление с вашей причиной.</p>
+      <label>Игрок</label>
+      <select id="state-player"></select>
+      <label>Сумма, ฿ <span class="muted">(минус — штраф, плюс — субсидия)</span></label>
+      <input type="number" id="state-amount" step="1" inputmode="numeric" placeholder="например -50000">
+      <label>Причина</label>
+      <input type="text" id="state-reason" maxlength="200" placeholder="Санитарная проверка">
+      <div class="btn-row">
+        <button class="btn-danger" onclick="applyStateAdjust(-1, this)">Оштрафовать</button>
+        <button class="btn-secondary" onclick="applyStateAdjust(1, this)">Выдать субсидию</button>
+      </div>
+      <div id="state-hint" class="field-hint"></div>
+    </section>
+
+    <!-- ======================= СОСТАВ ИГРОКОВ (v4.2) ======================= -->
+    <section class="card" id="admin-roster-card">
+      <h3>Состав партии</h3>
+      <p class="muted">Впишите ники Telegram — по одному в поле. <b>Собачка не нужна</b>,
+        но если вставите с ней, она отбросится сама. Регистр не важен.
+        Пустые поля игнорируются.</p>
+      <p class="muted">Этот список и есть итоговый состав: кого нет в базе — добавится,
+        кого убрали из полей — исчезнет. Игрока с уже сыгранными месяцами удалить нельзя,
+        иначе порвётся история на табло.</p>
+      <div class="roster-grid" id="roster-grid"></div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="savePlayersRoster(this)">Сохранить состав</button>
+      </div>
+      <div id="roster-hint" class="field-hint"></div>
+    </section>
+
+    <!-- ======================= НАСТРОЙКИ ИГРЫ (v4.0) ======================= -->
+    <section class="card" id="admin-config-card">
+      <h3>Настройки партии</h3>
+      <p class="muted">Меняются на ходу. Новые значения действуют со следующего
+        открытого месяца — иначе игроки считали бы по одним цифрам, а получали по другим.</p>
+      <div class="config-grid">
+        <div><label>Длительность месяца, мин</label>
+          <input type="number" id="cfg-ROUND_DURATION_MIN" step="1" min="1" max="120" inputmode="numeric"></div>
+        <div><label>Аренда, ฿/мес</label>
+          <input type="number" id="cfg-RENT" step="1" min="0" inputmode="numeric"></div>
+        <div><label>ФОТ, ฿/мес</label>
+          <input type="number" id="cfg-PAYROLL_BASE" step="1" min="0" inputmode="numeric"></div>
+        <div><label>Месяцев в партии</label>
+          <input type="number" id="cfg-TOTAL_ROUNDS" step="1" min="1" max="36" inputmode="numeric"></div>
+        <div><label>Зарплата госслужбы, ฿/мес</label>
+          <input type="number" id="cfg-CIVIL_SERVICE_SALARY" step="1" min="0" inputmode="numeric"></div>
+        <div><label>Порог открытия дела, ฿</label>
+          <input type="number" id="cfg-REOPEN_THRESHOLD" step="1" min="0" inputmode="numeric"></div>
+        <div><label>Опорная цена, ฿</label>
+          <input type="number" id="cfg-P_REF" step="1" min="10" inputmode="numeric"></div>
+        <div><label>Клиентов на рынке в месяц</label>
+          <input type="number" id="cfg-MARKET_SIZE_PER_PLAYER" step="1" min="100" inputmode="numeric"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="saveGameConfig(this)">Сохранить настройки</button>
+      </div>
+      <div id="config-hint" class="field-hint"></div>
+    </section>
+
+    <section class="card" style="display:none">
+      <table>
+      </table>
+    </section>
+
     <section class="card danger-zone">
       <h3>Опасная зона</h3>
-      <p class="muted">Полностью очищает игроков, решения, историю месяцев и банковский журнал —
-        начинать месяц 1 с чистого листа. Настройки экономики в Config не затрагиваются.</p>
-
+      <p class="muted">Сброс обнуляет ход партии: месяцы, решения, результаты, кошельки,
+        кредиты и уведомления. Состав игроков и настройки сохраняются, всем возвращается
+        стартовый капитал. Отменить нельзя.</p>
       <button class="btn-danger" id="reset-reveal-btn" onclick="revealResetConfirm()">Начать игру заново</button>
-
       <div id="reset-confirm-block" class="hidden">
-        <p class="muted">Чтобы подтвердить, наберите код текущей игры (лист Config → GAME_CODE):</p>
-        <input type="text" id="reset-confirm-input" placeholder="Код игры">
+        <p class="warn-text">Точно сбросить партию? Все сыгранные месяцы будут удалены.</p>
         <div class="reset-confirm-actions">
-          <button class="btn-danger" onclick="confirmResetGame(this)">Подтвердить сброс</button>
+          <button class="btn-danger" onclick="confirmReset(this)">Да, сбросить</button>
           <button class="btn-secondary" onclick="cancelResetConfirm()">Отмена</button>
         </div>
       </div>
+      <div id="reset-hint" class="field-hint"></div>
     </section>
   </div>
 
-  <script src="App.js"></script>
+  <script src="App.js?v=42"></script>
 </body>
 </html>
