@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- "Захвати рынок или закрой бизнес" — MVP v4.2 · от 28.08.2026 -->
+<!-- "Захвати рынок или закрой бизнес" — MVP v4.4 · от 28.08.2026 -->
 <html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Захвати рынок или закрой бизнес — Табло</title>
-  <link rel="stylesheet" href="tablo.css?v=42">
+  <link rel="stylesheet" href="tablo.css?v=44">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
 </head>
 <body>
@@ -30,11 +30,25 @@
     <button class="tab-btn" data-metric="capacity">Ёмкость</button>
     <button class="tab-btn" data-metric="marketingTotal">Реклама</button>
     <button class="tab-btn" data-metric="qualityInvest">Вложения в кач-во</button>
+    <button class="tab-btn" data-metric="treasury" id="treasury-tab-btn">Казна</button>
     <button class="tab-btn" data-metric="techinfo" id="techinfo-tab-btn">Техданные</button>
   </nav>
 
   <main class="tablo-chart-wrap">
     <canvas id="tablo-chart"></canvas>
+    <div id="tablo-treasury" class="tablo-treasury-page hidden">
+      <div class="treasury-summary" id="treasury-summary"></div>
+      <div class="treasury-charts">
+        <div class="treasury-chart-box">
+          <div class="treasury-chart-title">Доходы казны по месяцам</div>
+          <canvas id="treasury-income-chart"></canvas>
+        </div>
+        <div class="treasury-chart-box">
+          <div class="treasury-chart-title">Накопленная казна</div>
+          <canvas id="treasury-balance-chart"></canvas>
+        </div>
+      </div>
+    </div>
     <div id="tablo-techinfo" class="tablo-techinfo-page hidden"></div>
   </main>
 
@@ -42,6 +56,6 @@
     Пока нет данных — табло обновится, как только будет рассчитан первый месяц.
   </div>
 
-  <script src="tablo.js?v=42"></script>
+  <script src="tablo.js?v=44"></script>
 </body>
 </html>

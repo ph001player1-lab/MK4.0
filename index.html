@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<!-- "Захвати рынок или закрой бизнес" — MVP v4.2 · от 28.08.2026 -->
+<!-- "Захвати рынок или закрой бизнес" — MVP v4.4 · от 28.08.2026 -->
 <html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>Захвати рынок или закрой бизнес</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="Style.css?v=42">
+  <link rel="stylesheet" href="Style.css?v=44">
 </head>
 <body>
 
@@ -336,6 +336,23 @@
       <div id="state-hint" class="field-hint"></div>
     </section>
 
+    <!-- ======================= КАЗНА (v4.4) ======================= -->
+    <section class="card" id="admin-treasury-card">
+      <h3>Доход государства</h3>
+      <p class="muted">Земля государственная — аренда идёт в казну. Банк государственный —
+        проценты по кредитам тоже. Штрафы пополняют казну, субсидии и зарплаты
+        госслужащих выплачиваются из неё.</p>
+      <div class="treasury-total" id="a-treasury-total">Казна: —</div>
+      <div class="table-scroll">
+        <table class="monitor-table" id="admin-treasury-table">
+          <thead>
+            <tr><th>Мес</th><th>Аренда</th><th>Проценты</th><th>Штрафы</th><th>Выплаты</th><th>Итог</th><th>Казна</th></tr>
+          </thead>
+          <tbody id="admin-treasury-body"></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- ======================= СОСТАВ ИГРОКОВ (v4.2) ======================= -->
     <section class="card" id="admin-roster-card">
       <h3>Состав партии</h3>
@@ -374,6 +391,10 @@
           <input type="number" id="cfg-P_REF" step="1" min="10" inputmode="numeric"></div>
         <div><label>Клиентов на рынке в месяц</label>
           <input type="number" id="cfg-MARKET_SIZE_PER_PLAYER" step="1" min="100" inputmode="numeric"></div>
+        <div><label>Ставка кредита, % годовых</label>
+          <input type="number" id="cfg-LOAN_RATE_ANNUAL_PCT" step="0.1" min="0" max="100" inputmode="decimal"></div>
+        <div><label>Срок кредита, мес</label>
+          <input type="number" id="cfg-LOAN_TERM_MONTHS" step="1" min="1" max="36" inputmode="numeric"></div>
       </div>
       <div class="btn-row">
         <button class="btn-primary" onclick="saveGameConfig(this)">Сохранить настройки</button>
@@ -403,6 +424,6 @@
     </section>
   </div>
 
-  <script src="App.js?v=42"></script>
+  <script src="App.js?v=44"></script>
 </body>
 </html>

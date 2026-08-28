@@ -1,4 +1,4 @@
-/* "Захвати рынок или закрой бизнес" — MVP v4.2 · от 28.08.2026 */
+/* "Захвати рынок или закрой бизнес" — MVP v4.4 · от 28.08.2026 */
 :root {
     --bg: #0f1115;
     --card: #171a21;
@@ -278,3 +278,13 @@ input.input-invalid { border-color: var(--danger); }
 .warn-text { color: var(--danger); font-weight: 600; margin: 10px 0; font-size: 13px; }
 .reset-confirm-actions { display: flex; gap: 8px; }
 .reset-confirm-actions button { flex: 1; }
+
+/* ---------------------------------------- v4.4: казна в пульте */
+.treasury-total {
+  margin: 10px 0 12px; padding: 12px 14px; border-radius: 10px;
+  background: var(--card); border: 1px solid var(--accent);
+  font-size: 15px; font-weight: 600; color: var(--accent);
+}
+.treasury-total-negative { color: var(--danger); border-color: var(--danger); }
+.table-scroll { overflow-x: auto; }
+#admin-treasury-table { font-size: 12px; min-width: 480px; }

@@ -1,10 +1,10 @@
-// "Захвати рынок или закрой бизнес" — MVP v4.2 · от 28.08.2026
+// "Захвати рынок или закрой бизнес" — MVP v4.4 · от 28.08.2026
 // Табло для проектора/ТВ. Обращается к Code.gs через fetch() (только GET).
 
 // ⚠️ Та же ссылка, что и в App.js. Меняется в двух местах при новом деплое.
 // Те же два значения, что и в App.js. Заполняются один раз.
-var EXEC_URL = 'https://xgojmizawllcfbfojbex.supabase.co/functions/v1/game';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhnb2ptaXphd2xsY2ZiZm9qYmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4OTU5NTksImV4cCI6MjEwMzQ3MTk1OX0.X9yCnRspwyFtbd-kzP152WVFfttIzdHDjH3i10fUTfU';
+var EXEC_URL = 'ВСТАВЬТЕ_СЮДА_АДРЕС_ФУНКЦИИ_GAME';
+var SUPABASE_KEY = 'ВСТАВЬТЕ_СЮДА_PUBLISHABLE_КЛЮЧ';
 
 var METRIC_LABELS = {
   profit: 'Прибыль / доход за месяц, ฿',
@@ -147,6 +147,16 @@ function renderChart() {
   var empty = document.getElementById('tablo-empty');
   var canvas = document.getElementById('tablo-chart');
   var techPage = document.getElementById('tablo-techinfo');
+  var treasuryPage = document.getElementById('tablo-treasury');
+  if (treasuryPage) treasuryPage.classList.add('hidden');
+
+  if (currentMetric === 'treasury') {
+    if (chart) { chart.destroy(); chart = null; }
+    canvas.classList.add('hidden');
+    techPage.classList.add('hidden');
+    renderTreasuryPage();
+    return;
+  }
 
   if (currentMetric === 'techinfo') {
     canvas.classList.add('hidden');
@@ -295,6 +305,114 @@ function renderChart() {
   } catch (err) {
     showTabloMessage('Ошибка отрисовки графика: ' + err.message);
   }
+}
+
+
+// ==================== ВКЛАДКА «КАЗНА» (v4.4) ====================
+//
+// Государство здесь не бездонный карман: аренда и проценты по кредитам
+// наполняют казну, штрафы пополняют, субсидии и зарплаты госслужащих
+// расходуют. Показываем это всем — тогда решение ведущего выдать
+// субсидию становится видимым выбором, а не жестом из ниоткуда.
+
+var treasuryIncomeChart = null;
+var treasuryBalanceChart = null;
+
+function destroyTreasuryCharts() {
+  if (treasuryIncomeChart) { treasuryIncomeChart.destroy(); treasuryIncomeChart = null; }
+  if (treasuryBalanceChart) { treasuryBalanceChart.destroy(); treasuryBalanceChart = null; }
+}
+
+function treasuryAxes(withZeroLine) {
+  return {
+    x: { ticks: { color: '#aab0bb', font: { size: 15 } }, grid: { color: '#20242c' } },
+    y: {
+      ticks: {
+        color: '#aab0bb', font: { size: 15 },
+        callback: function (v) { return Number(v).toLocaleString('ru-RU'); }
+      },
+      grid: { color: withZeroLine ? '#2c313b' : '#20242c' }
+    }
+  };
+}
+
+function renderTreasuryPage() {
+  var page = document.getElementById('tablo-treasury');
+  var empty = document.getElementById('tablo-empty');
+  var rows = lastTimeline && lastTimeline.treasury;
+
+  if (!rows || !rows.length) {
+    destroyTreasuryCharts();
+    empty.textContent = 'Казна пополнится после расчёта первого месяца.';
+    empty.classList.remove('hidden');
+    page.classList.add('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  page.classList.remove('hidden');
+
+  var labels = rows.map(function (r) { return 'Мес ' + r.round; });
+  var last = rows[rows.length - 1];
+
+  var fmt = function (v) { return Number(v).toLocaleString('ru-RU') + ' ฿'; };
+  document.getElementById('treasury-summary').innerHTML =
+    '<div class="treasury-stat"><div class="treasury-stat-label">Казна сейчас</div>' +
+      '<div class="treasury-stat-value' + (last.balance < 0 ? ' negative' : '') + '">' + fmt(last.balance) + '</div></div>' +
+    '<div class="treasury-stat"><div class="treasury-stat-label">За последний месяц</div>' +
+      '<div class="treasury-stat-value' + (last.income < 0 ? ' negative' : '') + '">' + fmt(last.income) + '</div></div>' +
+    '<div class="treasury-stat"><div class="treasury-stat-label">Аренда за месяц</div>' +
+      '<div class="treasury-stat-value">' + fmt(last.rent) + '</div></div>' +
+    '<div class="treasury-stat"><div class="treasury-stat-label">Проценты банку</div>' +
+      '<div class="treasury-stat-value">' + fmt(last.interest) + '</div></div>' +
+    '<div class="treasury-stat"><div class="treasury-stat-label">Штрафы собрано</div>' +
+      '<div class="treasury-stat-value">' + fmt(last.fines) + '</div></div>' +
+    '<div class="treasury-stat"><div class="treasury-stat-label">Выплачено из казны</div>' +
+      '<div class="treasury-stat-value negative">' + fmt(last.subsidies) + '</div></div>';
+
+  destroyTreasuryCharts();
+
+  // График 1: из чего сложился доход месяца. Столбики с накоплением —
+  // сразу видно вклад каждого источника, а не только итог.
+  treasuryIncomeChart = new Chart(document.getElementById('treasury-income-chart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Аренда', data: rows.map(function (r) { return r.rent; }), backgroundColor: '#3ba55d' },
+        { label: 'Проценты', data: rows.map(function (r) { return r.interest; }), backgroundColor: '#5b8ff9' },
+        { label: 'Штрафы', data: rows.map(function (r) { return r.fines; }), backgroundColor: '#e0a530' },
+        { label: 'Выплаты из казны', data: rows.map(function (r) { return -r.subsidies; }), backgroundColor: '#d9534f' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#eef0f3', font: { size: 15 } } } },
+      scales: {
+        x: Object.assign({ stacked: true }, treasuryAxes(true).x),
+        y: Object.assign({ stacked: true }, treasuryAxes(true).y)
+      }
+    }
+  });
+
+  // График 2: накопленная казна нарастающим итогом.
+  treasuryBalanceChart = new Chart(document.getElementById('treasury-balance-chart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Казна',
+        data: rows.map(function (r) { return r.balance; }),
+        borderColor: '#3ba55d', backgroundColor: 'rgba(59,165,93,0.15)',
+        borderWidth: 4, tension: 0.25, fill: true, pointRadius: 5
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: treasuryAxes(true)
+    }
+  });
 }
 
 function renderTechInfoPage() {

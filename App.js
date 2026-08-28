@@ -1,4 +1,4 @@
-// "Захвати рынок или закрой бизнес" — MVP v4.2 · от 28.08.2026
+// "Захвати рынок или закрой бизнес" — MVP v4.4 · от 28.08.2026
 // Кабинет игрока и администратора. Обращается к Code.gs через fetch()
 // (только GET — см. пояснение внутри apiPost ниже).
 
@@ -13,8 +13,8 @@
 // Публичный ключ НЕ секрет: он по замыслу уезжает в браузер каждому
 // игроку. Красть им нечего — RLS в базе запрещает этому ключу всё, а
 // решает, кому что показать, сама Edge Function.
-var EXEC_URL = 'https://xgojmizawllcfbfojbex.supabase.co/functions/v1/game';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhnb2ptaXphd2xsY2ZiZm9qYmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4OTU5NTksImV4cCI6MjEwMzQ3MTk1OX0.X9yCnRspwyFtbd-kzP152WVFfttIzdHDjH3i10fUTfU';
+var EXEC_URL = 'ВСТАВЬТЕ_СЮДА_АДРЕС_ФУНКЦИИ_GAME';
+var SUPABASE_KEY = 'ВСТАВЬТЕ_СЮДА_PUBLISHABLE_КЛЮЧ';
 
 // Изредка Apps Script (через распределённую сеть edge-узлов Google) на
 // долю секунды отдаёт HTML-заглушку вместо JSON — особенно заметно при
@@ -309,7 +309,13 @@ function boot() {
 // ---------------------------------------------------------------- ФОРМАТ
 
 function fmtMoney(m) {
-  if (!m) return '—';
+  // Прочерк уместен в таблице, где значения у игрока действительно нет
+  // (бренд у того, кто вне бизнеса). Но в окне подтверждения он читался
+  // как поломка: механика отработала, а сумма не показана. Отличаем
+  // «значения нет» от «поле не пришло» — второе теперь видно сразу.
+  if (m === null || m === undefined) return '—';
+  if (typeof m === 'number') return m.toLocaleString('ru-RU') + ' ฿';
+  if (typeof m.thb !== 'number') return '(нет данных)';
   return m.thb.toLocaleString('ru-RU') + ' ฿';
 }
 function fmtUsd(m) { return m ? '$' + m.usd.toLocaleString('en-US') : ''; }
@@ -1317,7 +1323,12 @@ function applyStateAdjust(sign, btn) {
 // ==================== НАСТРОЙКИ ПАРТИИ (v4.0) ====================
 
 var CONFIG_FIELDS = ['ROUND_DURATION_MIN', 'RENT', 'PAYROLL_BASE', 'TOTAL_ROUNDS',
-                     'CIVIL_SERVICE_SALARY', 'REOPEN_THRESHOLD', 'P_REF', 'MARKET_SIZE_PER_PLAYER'];
+                     'CIVIL_SERVICE_SALARY', 'REOPEN_THRESHOLD', 'P_REF',
+                     'MARKET_SIZE_PER_PLAYER', 'LOAN_TERM_MONTHS'];
+
+// Ставка живёт в конфиге долей (0.15), а ведущему привычнее проценты.
+// Держим отдельным полем и переводим на входе и выходе, чтобы не
+// заставлять человека вспоминать, куда ставить запятую.
 
 function fillConfigForm(cfg) {
   if (!cfg) return;
@@ -1327,6 +1338,40 @@ function fillConfigForm(cfg) {
     // каждые 8 секунд стирал бы то, что вы печатаете.
     if (el && cfg[key] !== undefined && document.activeElement !== el) el.value = cfg[key];
   });
+
+  var rateEl = document.getElementById('cfg-LOAN_RATE_ANNUAL_PCT');
+  if (rateEl && cfg.LOAN_RATE_ANNUAL !== undefined && document.activeElement !== rateEl) {
+    rateEl.value = Math.round(cfg.LOAN_RATE_ANNUAL * 1000) / 10;
+  }
+}
+
+function renderTreasury(t) {
+  if (!t) return;
+  var totalEl = document.getElementById('a-treasury-total');
+  if (totalEl) {
+    totalEl.textContent = 'Казна: ' + fmtMoney(t.balance) +
+      '  ·  за последний месяц: ' + fmtMoney(t.lastIncome);
+    totalEl.className = 'treasury-total' +
+      (t.balance && t.balance.thb < 0 ? ' treasury-total-negative' : '');
+  }
+
+  var body = document.getElementById('admin-treasury-body');
+  if (!body) return;
+  if (!t.rows || !t.rows.length) {
+    body.innerHTML = '<tr><td colspan="7" class="muted">Появится после расчёта первого месяца.</td></tr>';
+    return;
+  }
+  body.innerHTML = t.rows.map(function (r) {
+    return '<tr>' +
+      '<td>' + r.round + '</td>' +
+      '<td>' + fmtMoney(r.rent) + '</td>' +
+      '<td>' + fmtMoney(r.interest) + '</td>' +
+      '<td>' + fmtMoney(r.fines) + '</td>' +
+      '<td class="' + (r.subsidies.thb > 0 ? 'pending' : '') + '">' + fmtMoney(r.subsidies) + '</td>' +
+      '<td class="' + (r.income.thb < 0 ? 'pending' : 'ok') + '">' + fmtMoney(r.income) + '</td>' +
+      '<td><b>' + fmtMoney(r.balance) + '</b></td>' +
+      '</tr>';
+  }).join('');
 }
 
 function saveGameConfig(btn) {
@@ -1344,6 +1389,17 @@ function saveGameConfig(btn) {
       return;
     }
     updates[key] = v;
+  }
+
+  var rateEl = document.getElementById('cfg-LOAN_RATE_ANNUAL_PCT');
+  if (rateEl && rateEl.value.trim() !== '') {
+    var pct = Number(rateEl.value);
+    if (!isFinite(pct) || pct < 0 || pct > 100) {
+      hint.textContent = 'Ставка кредита — от 0 до 100 процентов.';
+      hint.className = 'field-hint field-hint-error';
+      return;
+    }
+    updates.LOAN_RATE_ANNUAL = Math.round(pct * 10) / 1000;
   }
 
   withButtonLoading(btn, 'Сохраняем…', function () {
@@ -1409,6 +1465,7 @@ function renderAdminMonitor(d) {
   fillStatePlayerSelect(d.players);
   fillConfigForm(d.config);
   fillRoster(d.players);
+  renderTreasury(d.treasury);
 
   startCountdown(d.round.status === 'open' ? d.round.deadline : null, ['a-timer']);
 }
