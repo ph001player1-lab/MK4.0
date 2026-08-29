@@ -1,4 +1,4 @@
-/* "Захвати рынок или закрой бизнес" — MVP v4.5 · от 28.08.2026 */
+/* "Захвати рынок или закрой бизнес" — MVP v4.6 · от 28.08.2026 */
 :root {
     --bg: #0f1115;
     --card: #171a21;
@@ -288,3 +288,11 @@ input.input-invalid { border-color: var(--danger); }
 .treasury-total-negative { color: var(--danger); border-color: var(--danger); }
 .table-scroll { overflow-x: auto; }
 #admin-treasury-table { font-size: 12px; min-width: 480px; }
+
+/* ---------------------------------------- v4.6: перевод вне бизнеса */
+.subcard {
+  margin-top: 14px; padding: 12px 14px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+}
+.subcard h4 { font-size: 14px; margin: 0 0 6px; }
+.subcard select, .subcard input { margin-bottom: 8px; }

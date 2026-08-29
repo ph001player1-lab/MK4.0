@@ -1,10 +1,10 @@
-// "Захвати рынок или закрой бизнес" — MVP v4.5 · от 28.08.2026
+// "Захвати рынок или закрой бизнес" — MVP v4.6 · от 28.08.2026
 // Табло для проектора/ТВ. Обращается к Code.gs через fetch() (только GET).
 
 // ⚠️ Та же ссылка, что и в App.js. Меняется в двух местах при новом деплое.
 // Те же два значения, что и в App.js. Заполняются один раз.
-var EXEC_URL = 'https://xgojmizawllcfbfojbex.supabase.co/functions/v1/game';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhnb2ptaXphd2xsY2ZiZm9qYmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4OTU5NTksImV4cCI6MjEwMzQ3MTk1OX0.X9yCnRspwyFtbd-kzP152WVFfttIzdHDjH3i10fUTfU';
+var EXEC_URL = 'ВСТАВЬТЕ_СЮДА_АДРЕС_ФУНКЦИИ_GAME';
+var SUPABASE_KEY = 'ВСТАВЬТЕ_СЮДА_PUBLISHABLE_КЛЮЧ';
 
 var METRIC_LABELS = {
   profit: 'Прибыль / доход за месяц, ฿',
@@ -38,6 +38,8 @@ var PALETTE = [
 var currentMetric = 'profit';
 var chart = null;
 var lastTimeline = null;
+var hiddenDatasets = {};   // какие линии ведущий скрыл в легенде
+var tabloClockOffsetMs = 0;  // поправка между часами сервера и этого экрана
 var tabloCountdownInterval = null;
 var tabloDeadlineMs = null;
 
@@ -101,7 +103,9 @@ function showTabloMessage(text) {
   canvas.classList.add('hidden');
 }
 
-function loadTimeline() {
+var lastTimelineSignature = null;
+
+function loadTimeline(forceRedraw) {
   apiGet('timeline')
     .then(function (d) {
       if (!d.ok) {
@@ -112,11 +116,28 @@ function loadTimeline() {
           '. Проверьте Config → ADMIN_USERNAME и структуру листов (запустите setupSheets() ещё раз).');
         return;
       }
+      // v4.6. Раньше график пересоздавался каждые 10 секунд, даже когда
+      // в данных ничего не менялось. На проекторе это мешало: стоит
+      // выключить в легенде лишние линии, чтобы разобрать одну, — и через
+      // несколько секунд всё возвращалось. Теперь перерисовываем только
+      // при реальном изменении данных, а между расчётами месяцев график
+      // просто стоит, и с ним можно спокойно работать.
+      var signature = JSON.stringify({
+        players: d.players, treasury: d.treasury, marketTotals: d.marketTotals
+      });
+      var dataChanged = signature !== lastTimelineSignature;
+      lastTimelineSignature = signature;
       lastTimeline = d;
+
       document.getElementById('t-round').textContent = 'Месяц ' + d.roundNumber +
         (d.totalRounds ? ' из ' + d.totalRounds : '');
+      if (d.serverNow) {
+        var sMs = new Date(d.serverNow).getTime();
+        if (isFinite(sMs)) tabloClockOffsetMs = sMs - Date.now();
+      }
       startTabloCountdown(d.roundStatus === 'open' ? d.deadline : null);
-      renderChart();
+
+      if (dataChanged || forceRedraw) renderChart();
     })
     .catch(function (err) {
       showTabloMessage('Не удалось связаться с сервером: ' + err.message);
@@ -133,7 +154,7 @@ function startTabloCountdown(deadlineIso) {
   tabloCountdownInterval = setInterval(tick, 1000);
 
   function tick() {
-    var remaining = Math.max(0, Math.round((tabloDeadlineMs - Date.now()) / 1000));
+    var remaining = Math.max(0, Math.round((tabloDeadlineMs - (Date.now() + tabloClockOffsetMs)) / 1000));
     var mm = String(Math.floor(remaining / 60)).padStart(2, '0');
     var ss = String(remaining % 60).padStart(2, '0');
     el.textContent = mm + ':' + ss;
@@ -242,6 +263,10 @@ function renderChart() {
       borderColor: color,
       backgroundColor: color,
       borderWidth: 3,
+      // Линии, выключенные в легенде, остаются выключенными и после
+      // пересчёта месяца — иначе разбор конкретного игрока каждый раз
+      // сбрасывался бы к общей каше.
+      hidden: !!hiddenDatasets[p.restaurant],
       borderDash: DASH_PATTERNS[i % DASH_PATTERNS.length],
       pointRadius: pointRadius,
       pointStyle: pointStyle,
@@ -280,6 +305,18 @@ function renderChart() {
         maintainAspectRatio: false,
         animation: { duration: 400 },
         plugins: {
+          legend: {
+            labels: { color: '#eef0f3', font: { size: 16 }, usePointStyle: true, padding: 16 },
+            onClick: function (e, item, legend) {
+              var ci = legend.chart;
+              var meta = ci.getDatasetMeta(item.datasetIndex);
+              meta.hidden = meta.hidden === null ? !ci.data.datasets[item.datasetIndex].hidden : null;
+              var label = ci.data.datasets[item.datasetIndex].label || '';
+              var name = label.replace(' · вне бизнеса', '');
+              if (meta.hidden) hiddenDatasets[name] = true; else delete hiddenDatasets[name];
+              ci.update();
+            }
+          },
           legend: {
             position: 'bottom',
             labels: { color: '#eef0f3', font: { size: 16 }, boxWidth: 20 }
@@ -530,9 +567,11 @@ document.querySelectorAll('.tab-btn').forEach(function (btn) {
     document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
     btn.classList.add('active');
     currentMetric = btn.getAttribute('data-metric');
+    hiddenDatasets = {};   // на новой вкладке показываем все линии заново
+    lastTimelineSignature = null;   // заставляем перерисовать при смене вкладки
     renderChart();
   });
 });
 
 loadTimeline();
-setInterval(loadTimeline, 10000); // табло само обновляется по мере расчёта месяцев
+setInterval(function () { loadTimeline(false); }, 10000); // табло само обновляется по мере расчёта месяцев

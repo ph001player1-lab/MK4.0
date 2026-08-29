@@ -1,4 +1,4 @@
-// "Захвати рынок или закрой бизнес" — MVP v4.5 · от 28.08.2026
+// "Захвати рынок или закрой бизнес" — MVP v4.6 · от 28.08.2026
 // Кабинет игрока и администратора. Обращается к Code.gs через fetch()
 // (только GET — см. пояснение внутри apiPost ниже).
 
@@ -13,8 +13,8 @@
 // Публичный ключ НЕ секрет: он по замыслу уезжает в браузер каждому
 // игроку. Красть им нечего — RLS в базе запрещает этому ключу всё, а
 // решает, кому что показать, сама Edge Function.
-var EXEC_URL = 'https://xgojmizawllcfbfojbex.supabase.co/functions/v1/game';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhnb2ptaXphd2xsY2ZiZm9qYmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4OTU5NTksImV4cCI6MjEwMzQ3MTk1OX0.X9yCnRspwyFtbd-kzP152WVFfttIzdHDjH3i10fUTfU';
+var EXEC_URL = 'ВСТАВЬТЕ_СЮДА_АДРЕС_ФУНКЦИИ_GAME';
+var SUPABASE_KEY = 'ВСТАВЬТЕ_СЮДА_PUBLISHABLE_КЛЮЧ';
 
 // Изредка Apps Script (через распределённую сеть edge-узлов Google) на
 // долю секунды отдаёт HTML-заглушку вместо JSON — особенно заметно при
@@ -331,6 +331,25 @@ var countdownInterval = null;
 var countdownDeadlineMs = null;
 var countdownFiredRefresh = false;
 
+// v4.6. Поправка между часами сервера и часами устройства.
+//
+// Таймер раньше считал остаток как «дедлайн минус Date.now()», то есть
+// по часам телефона. Если они отставали на три минуты, игрок честно
+// видел восемь минут вместо пяти — и это не его ошибка, а наша. Теперь
+// при каждом ответе сервера запоминаем разницу и считаем по ней.
+var serverClockOffsetMs = 0;
+
+function syncServerClock(serverNowIso) {
+  if (!serverNowIso) return;
+  var serverMs = new Date(serverNowIso).getTime();
+  if (!isFinite(serverMs)) return;
+  serverClockOffsetMs = serverMs - Date.now();
+}
+
+function serverNowMs() {
+  return Date.now() + serverClockOffsetMs;
+}
+
 function startCountdown(deadlineIso, elementIds) {
   stopCountdown();
   if (!deadlineIso) {
@@ -351,7 +370,7 @@ function stopCountdown() {
 }
 
 function tickCountdown(elementIds) {
-  var remainingSec = Math.max(0, Math.round((countdownDeadlineMs - Date.now()) / 1000));
+  var remainingSec = Math.max(0, Math.round((countdownDeadlineMs - serverNowMs()) / 1000));
   var mm = String(Math.floor(remainingSec / 60)).padStart(2, '0');
   var ss = String(remainingSec % 60).padStart(2, '0');
   var text = mm + ':' + ss;
@@ -514,6 +533,7 @@ function renderPlayerDashboard(d) {
   renderDecisionForm(d);
   renderTransferOptions(d.otherPlayers);
   renderMyEmployees(d.myEmployees);
+  syncServerClock(d.game.serverNow);
   startCountdown(d.game.roundStatus === 'open' ? d.game.deadline : null, ['p-timer']);
 }
 
@@ -554,6 +574,71 @@ function safeRenderInto(containerId, html) {
   container.innerHTML = html;
 }
 
+
+// v4.6. Перевод из режима вне бизнеса. Раньше форма была только у
+// активных игроков, и госслужащий с накоплениями не мог никому помочь —
+// хотя деньги у него есть, а зарплата капает каждый месяц.
+function offBusinessTransferHtml(d) {
+  var recipients = (d.otherActivePlayers || []).concat(d.otherOffBusinessPlayers || []);
+  if (!recipients.length) return '';
+
+  var options = recipients.map(function (p) {
+    return '<option value="' + p.username + '">' + p.restaurant + '</option>';
+  }).join('');
+
+  return '<div class="subcard">' +
+    '<h4>Перевести деньги</h4>' +
+    '<p class="muted">Со своих накоплений — любому игроку. Доступно: ' +
+      fmtMoney(d.employment.savings) + '.</p>' +
+    '<select id="ob-transfer-to">' + options + '</select>' +
+    '<input type="number" id="ob-transfer-amount" step="1" min="1" inputmode="numeric" placeholder="Сумма, ฿">' +
+    '<div class="field-hint" id="ob-transfer-hint"></div>' +
+    '<button class="btn-secondary" onclick="sendOffBusinessTransfer(this)">Перевести</button>' +
+    '</div>';
+}
+
+function sendOffBusinessTransfer(btn) {
+  var to = (document.getElementById('ob-transfer-to') || {}).value;
+  var raw = (document.getElementById('ob-transfer-amount') || {}).value;
+  var hint = document.getElementById('ob-transfer-hint');
+  var amount = Math.floor(Number(raw));
+
+  if (!to) {
+    hint.textContent = 'Выберите получателя.';
+    hint.className = 'field-hint field-hint-error';
+    return;
+  }
+  if (!isFinite(amount) || amount <= 0) {
+    hint.textContent = 'Укажите сумму больше нуля.';
+    hint.className = 'field-hint field-hint-error';
+    return;
+  }
+  var have = lastDashboard && lastDashboard.employment ? lastDashboard.employment.savings.thb : 0;
+  if (amount > have) {
+    hint.textContent = 'У вас накоплено ' + have.toLocaleString('ru-RU') + ' ฿ — этого не хватит.';
+    hint.className = 'field-hint field-hint-error';
+    return;
+  }
+
+  withButtonLoading(btn, 'Переводим…', function () {
+    return apiPost('transferMoney', myUsername, { toUsername: to, amount: amount })
+      .then(function (res) {
+        if (res.ok) {
+          alert('Переведено ' + fmtMoney(res.sent) + ' игроку ' + res.toRestaurant +
+            '. Осталось: ' + fmtMoney(res.available) + '.');
+        } else {
+          var messages = {
+            insufficient_cash: 'Недостаточно средств. Доступно: ' + fmtMoney(res.available) + '.',
+            recipient_not_found: 'Такого игрока нет в партии.',
+            self_transfer: 'Перевести самому себе нельзя.'
+          };
+          alert(messages[res.error] || ('Не удалось перевести: ' + res.error));
+        }
+      })
+      .catch(function (err) { alert('Ошибка: ' + err.message); });
+  });
+}
+
 function renderOffBusinessContent(d) {
   var html = '<table class="pl-table">' +
     '<tr><td>Накоплено</td><td>' + fmtMoney(d.employment.savings) + '</td></tr>' +
@@ -577,17 +662,19 @@ function renderOffBusinessContent(d) {
     }
     html += '<p class="muted">Начисляется автоматически за каждый отработанный месяц. Не забудьте зачитать ' +
       'остальным короткую рекламу госбанка — по легенде это ваша обязанность (в игре не проверяется).</p>';
+    html += offBusinessTransferHtml(d);
     html += careerSwitchButtonsHtml('civil_service');
     return html;
   }
 
   if (d.lifecycle === 'freelance') {
-    html += '</table><p class="muted">Здесь нечего нажимать — убедите других игроков перевести вам стартовый ' +
-      'капитал (раздел «Перевести деньги» есть у каждого активного игрока). Как только накопится нужная сумма — ' +
-      'откроется кнопка «Открыть новое дело».</p>';
+    html += '</table><p class="muted">Убедите других игроков перевести вам стартовый капитал. ' +
+      'Как только накопится нужная сумма, откроется кнопка «Открыть новое дело». ' +
+      'Свои накопления вы тоже можете переводить кому угодно.</p>';
     if (d.otherActivePlayers && d.otherActivePlayers.length) {
       html += '<p class="muted">Сейчас активны: ' + d.otherActivePlayers.map(function (p) { return p.restaurant; }).join(', ') + '.</p>';
     }
+    html += offBusinessTransferHtml(d);
     html += careerSwitchButtonsHtml('freelance');
     return html;
   }
@@ -622,6 +709,7 @@ function renderOffBusinessContent(d) {
   // Пока ждёт согласования (или уже работает, но недоволен) — тоже можно
   // передумать и уйти на другой путь, не дожидаясь ответа нанимателя.
   html += '<p class="muted" style="margin-top:14px;">Не хотите больше ждать согласования или работать здесь?</p>';
+  html += offBusinessTransferHtml(d);
   html += careerSwitchButtonsHtml('custom');
 
   return html;
@@ -1467,6 +1555,7 @@ function renderAdminMonitor(d) {
   fillRoster(d.players);
   renderTreasury(d.treasury);
 
+  syncServerClock(d.round.serverNow);
   startCountdown(d.round.status === 'open' ? d.round.deadline : null, ['a-timer']);
 }
 
