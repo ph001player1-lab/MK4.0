@@ -1,10 +1,10 @@
-// "Захвати рынок или закрой бизнес" — MVP v4.7 · от 28.08.2026
+// "Захвати рынок или закрой бизнес" — MVP v4.8 · от 28.08.2026
 // Табло для проектора/ТВ. Обращается к Code.gs через fetch() (только GET).
 
 // ⚠️ Та же ссылка, что и в App.js. Меняется в двух местах при новом деплое.
 // Те же два значения, что и в App.js. Заполняются один раз.
-var EXEC_URL = 'https://xgojmizawllcfbfojbex.supabase.co/functions/v1/game';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhnb2ptaXphd2xsY2ZiZm9qYmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4OTU5NTksImV4cCI6MjEwMzQ3MTk1OX0.X9yCnRspwyFtbd-kzP152WVFfttIzdHDjH3i10fUTfU';
+var EXEC_URL = 'ВСТАВЬТЕ_СЮДА_АДРЕС_ФУНКЦИИ_GAME';
+var SUPABASE_KEY = 'ВСТАВЬТЕ_СЮДА_PUBLISHABLE_КЛЮЧ';
 
 var METRIC_LABELS = {
   profit: 'Прибыль / доход за месяц, ฿',
@@ -492,6 +492,13 @@ function loadRating(force) {
     .catch(function () { renderRatingPage(); });
 }
 
+var currentLeague = 12;
+
+function setRatingLeague(league) {
+  currentLeague = league;
+  renderRatingPage();
+}
+
 function renderRatingPage() {
   var page = document.getElementById('tablo-rating');
   var empty = document.getElementById('tablo-empty');
@@ -503,12 +510,14 @@ function renderRatingPage() {
     return;
   }
 
-  var players = ratingData.players || [];
-  if (!players.length) {
-    empty.textContent = 'Рейтинг наберётся, когда игроки доиграют по ' +
-      ratingData.minGames + ' полных партии (12, 24 или 36 месяцев). ' +
-      'Первая партия у новичка обычно уходит на знакомство с правилами, ' +
-      'поэтому в зачёт идут результаты начиная со второй.';
+  var leagues = ratingData.leagues || [];
+  var trainees = ratingData.trainees || [];
+  var hasAnything = leagues.some(function (l) { return (l.players || []).length; }) || trainees.length;
+
+  if (!hasAnything) {
+    empty.textContent = 'Рейтинг наберётся, когда игроки доиграют партии до конца лиги. ' +
+      'Первая двенадцатимесячная партия у новичка учебная — она в зачёт не идёт, ' +
+      'но открывает вход в рейтинг.';
     empty.classList.remove('hidden');
     page.classList.add('hidden');
     return;
@@ -520,53 +529,92 @@ function renderRatingPage() {
   var fmt = function (v) { return Number(v || 0).toLocaleString('ru-RU'); };
   var medal = function (i) { return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1); };
 
-  var rows = players.map(function (p, i) {
-    var history = (p.history || []).slice(0, 4).map(function (h) {
-      return '<span class="rating-chip" title="' + h.game + ', лига ' + h.league + ' мес">' +
-        h.place + '/' + h.rivals + ' · ×' + h.multiplier + '</span>';
+  // Лиги показываем все три всегда: пустая лига 24 — это не поломка, а
+  // приглашение сыграть длинную партию.
+  var allLeagues = [12, 24, 36];
+  var byLeague = {};
+  leagues.forEach(function (l) { byLeague[l.league] = l.players || []; });
+
+  var tabs = allLeagues.map(function (lg) {
+    var count = (byLeague[lg] || []).length;
+    return '<button class="league-btn' + (lg === currentLeague ? ' active' : '') + '" ' +
+      'onclick="setRatingLeague(' + lg + ')">' + lg + ' месяцев' +
+      '<span class="league-count">' + (count || '—') + '</span></button>';
+  }).join('');
+
+  var players = byLeague[currentLeague] || [];
+
+  var body;
+  if (!players.length) {
+    body = '<div class="rating-note">В этой лиге пока никто не набрал зачётных партий. ' +
+      (currentLeague === 12
+        ? 'Нужно доиграть хотя бы одну партию сверх учебной.'
+        : 'Сюда попадают автоматически, отыграв партию на ' + currentLeague + ' месяцев — учебная здесь не нужна.') +
+      '</div>';
+  } else {
+    var rows = players.map(function (p, i) {
+      var history = (p.history || []).slice(0, 4).map(function (h) {
+        return '<span class="rating-chip" title="' + h.game + '">' +
+          h.place + '/' + h.rivals + ' · ×' + h.multiplier + '</span>';
+      }).join('');
+
+      return '<tr class="' + (i < 3 ? 'rating-top' : '') + '">' +
+        '<td class="rating-place">' + medal(i) + '</td>' +
+        '<td class="rating-name">' + p.restaurant +
+          '<div class="rating-nick">@' + p.username + '</div></td>' +
+        '<td class="rating-score">' + p.score + '</td>' +
+        '<td>' + p.games + '</td>' +
+        '<td>' + p.wins + '</td>' +
+        '<td>×' + p.avg_multiplier + '</td>' +
+        '<td>×' + p.best_multiplier + '</td>' +
+        '<td>' + fmt(p.avg_capital) + ' ฿</td>' +
+        '<td class="' + (Number(p.avg_debt) > 0 ? 'rating-debt' : '') + '">' + fmt(p.avg_debt) + ' ฿</td>' +
+        '<td>' + p.avg_share_pct + '%</td>' +
+        '<td class="rating-history">' + history + '</td>' +
+        '</tr>';
     }).join('');
 
-    return '<tr class="' + (i < 3 ? 'rating-top' : '') + '">' +
-      '<td class="rating-place">' + medal(i) + '</td>' +
-      '<td class="rating-name">' + p.restaurant +
-        '<div class="rating-nick">@' + p.username + '</div></td>' +
-      '<td class="rating-score">' + p.score + '</td>' +
-      '<td>' + p.games + '</td>' +
-      '<td>' + p.wins + '</td>' +
-      '<td>×' + p.avg_multiplier + '</td>' +
-      '<td>×' + p.best_multiplier + '</td>' +
-      '<td>' + fmt(p.avg_capital) + ' ฿</td>' +
-      '<td class="' + (Number(p.avg_debt) > 0 ? 'rating-debt' : '') + '">' + fmt(p.avg_debt) + ' ฿</td>' +
-      '<td>' + p.avg_share_pct + '%</td>' +
-      '<td class="rating-history">' + history + '</td>' +
-      '</tr>';
-  }).join('');
+    body = '<table class="rating-table">' +
+      '<thead><tr>' +
+        '<th>Место</th><th>Заведение</th><th>Балл</th><th>Партий</th><th>Побед</th>' +
+        '<th>Приумножение</th><th>Лучший рост</th><th>Капитал</th><th>Займ</th>' +
+        '<th>Доля рынка</th><th>Последние партии</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  // Прошедшие обучение живут только в лиге 12: в длинных лигах учебных
+  // партий нет, туда приходят уже понимая игру.
+  var traineeBlock = '';
+  if (currentLeague === 12 && trainees.length) {
+    traineeBlock = '<div class="trainee-block">' +
+      '<div class="trainee-title">Прошли учебную партию · следующая идёт в зачёт</div>' +
+      '<div class="trainee-list">' +
+        trainees.map(function (t) {
+          return '<span class="trainee-chip">' + t.restaurant +
+            '<span class="trainee-nick">@' + t.username + '</span></span>';
+        }).join('') +
+      '</div></div>';
+  }
+
+  var formula = currentLeague === 12
+    ? 'Первая доигранная партия на 12 месяцев — учебная, в зачёт не идёт. ' +
+      'Со второй результат считается всерьёз.'
+    : 'В эту лигу попадают автоматически, отыграв партию на ' + currentLeague +
+      ' месяцев. Учебных партий здесь нет.';
 
   page.innerHTML =
     '<div class="rating-head">' +
       '<div class="rating-title">Рейтинг игроков</div>' +
-      '<div class="rating-rules">' +
-        'В зачёт идут доигранные партии: 12, 24 или 36 месяцев. ' +
-        'Технические месяцы сверх этого не учитываются. ' +
-        'Игрок попадает в рейтинг после ' + ratingData.minGames +
-        ' доигранных партий, в каждой из которых провёл не меньше ' +
-        ratingData.minMonths + ' месяцев.' +
-      '</div>' +
+      '<div class="league-tabs">' + tabs + '</div>' +
     '</div>' +
     '<div class="rating-formula">' +
       '<b>Балл</b> = 0,7 × среднее приумножение капитала  +  0,9 × средняя доля места в партии. ' +
       'Капитал считается по кассе на последний месяц лиги, <b>кредит не вычитается</b>: ' +
       'занять под финиш — законный приём, но взятое в долг видно в колонке «Займ». ' +
-      'Приумножение, капитал и займ усреднены по всем партиям игрока.' +
+      'Доля рынка — все обслуженные клиенты за партию от всего рынка партии. ' +
+      formula +
     '</div>' +
-    '<table class="rating-table">' +
-      '<thead><tr>' +
-        '<th>Место</th><th>Заведение</th><th>Балл</th><th>Партий</th><th>Побед</th>' +
-        '<th>Приумножение</th><th>Лучший рост</th><th>Капитал</th><th>Займ</th>' +
-        '<th>Доля рынка</th><th>Последние партии</th>' +
-      '</tr></thead>' +
-      '<tbody>' + rows + '</tbody>' +
-    '</table>';
+    body + traineeBlock;
 }
 
 function renderTechInfoPage() {

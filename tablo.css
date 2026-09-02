@@ -1,4 +1,4 @@
-/* "Захвати рынок или закрой бизнес" — MVP v4.7 · от 28.08.2026 */
+/* "Захвати рынок или закрой бизнес" — MVP v4.8 · от 28.08.2026 */
 * { box-sizing: border-box; }
 
 html, body {
@@ -188,3 +188,42 @@ html, body {
   background: #1b1f26; border: 1px solid #2c313b; border-radius: 6px;
   font-size: 12px; color: #aab0bb; white-space: nowrap;
 }
+
+/* ---------------------------------------- v4.8: лиги в рейтинге */
+.rating-head { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+
+.league-tabs { display: flex; gap: 8px; }
+.league-btn {
+  background: #171a21; border: 1px solid #2c313b; border-radius: 8px;
+  color: #aab0bb; font-size: 15px; font-weight: 600;
+  padding: 8px 14px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.league-btn:hover { border-color: #3ba55d; }
+.league-btn.active { background: #3ba55d; border-color: #3ba55d; color: #0f1115; }
+
+.league-count {
+  background: rgba(255,255,255,.12); border-radius: 5px;
+  padding: 1px 6px; font-size: 12px; font-weight: 700;
+}
+.league-btn.active .league-count { background: rgba(0,0,0,.18); }
+
+.rating-note {
+  background: #14171d; border: 1px solid #262a33; border-radius: 10px;
+  padding: 22px; color: #8a8f99; font-size: 16px; text-align: center;
+}
+
+/* Прошедшие обучение: без цифр, но на виду — человек уже в системе. */
+.trainee-block {
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid #262a33;
+}
+.trainee-title {
+  font-size: 13px; color: #8a8f99; text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: 10px;
+}
+.trainee-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.trainee-chip {
+  background: #171a21; border: 1px dashed #3a4150; border-radius: 8px;
+  padding: 7px 12px; font-size: 15px; color: #d6d9de;
+}
+.trainee-nick { color: #6d737d; font-size: 12px; margin-left: 7px; }
