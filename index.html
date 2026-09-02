@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<!-- "Захвати рынок или закрой бизнес" — MVP v4.6 · от 28.08.2026 -->
+<!-- "Захвати рынок или закрой бизнес" — MVP v4.7 · от 28.08.2026 -->
 <html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>Захвати рынок или закрой бизнес</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="Style.css?v=46">
+  <link rel="stylesheet" href="Style.css?v=47">
 </head>
 <body>
 
@@ -409,14 +409,15 @@
 
     <section class="card danger-zone">
       <h3>Опасная зона</h3>
-      <p class="muted">Сброс обнуляет ход партии: месяцы, решения, результаты, кошельки,
-        кредиты и уведомления. Состав игроков и настройки сохраняются, всем возвращается
-        стартовый капитал. Отменить нельзя.</p>
-      <button class="btn-danger" id="reset-reveal-btn" onclick="revealResetConfirm()">Начать игру заново</button>
+      <p class="muted">Текущая партия закрывается и уходит в архив, рядом начинается
+        новая — с тем же составом и настройками, всем возвращается стартовый капитал.
+        Сыгранное не пропадает: закрытые партии идут в общий рейтинг игроков.
+        Если ничего сыграно не было, партия просто обнулится на месте.</p>
+      <button class="btn-danger" id="reset-reveal-btn" onclick="revealResetConfirm()">Завершить партию и начать новую</button>
       <div id="reset-confirm-block" class="hidden">
-        <p class="warn-text">Точно сбросить партию? Все сыгранные месяцы будут удалены.</p>
+        <p class="warn-text">Закрыть текущую партию и начать новую?</p>
         <div class="reset-confirm-actions">
-          <button class="btn-danger" onclick="confirmReset(this)">Да, сбросить</button>
+          <button class="btn-danger" onclick="confirmReset(this)">Да, начать новую</button>
           <button class="btn-secondary" onclick="cancelResetConfirm()">Отмена</button>
         </div>
       </div>
@@ -424,6 +425,6 @@
     </section>
   </div>
 
-  <script src="App.js?v=46"></script>
+  <script src="App.js?v=47"></script>
 </body>
 </html>

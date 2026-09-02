@@ -1,10 +1,10 @@
-// "Захвати рынок или закрой бизнес" — MVP v4.6 · от 28.08.2026
+// "Захвати рынок или закрой бизнес" — MVP v4.7 · от 28.08.2026
 // Табло для проектора/ТВ. Обращается к Code.gs через fetch() (только GET).
 
 // ⚠️ Та же ссылка, что и в App.js. Меняется в двух местах при новом деплое.
 // Те же два значения, что и в App.js. Заполняются один раз.
-var EXEC_URL = 'https://xgojmizawllcfbfojbex.supabase.co/functions/v1/game';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhnb2ptaXphd2xsY2ZiZm9qYmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4OTU5NTksImV4cCI6MjEwMzQ3MTk1OX0.X9yCnRspwyFtbd-kzP152WVFfttIzdHDjH3i10fUTfU';
+var EXEC_URL = 'ВСТАВЬТЕ_СЮДА_АДРЕС_ФУНКЦИИ_GAME';
+var SUPABASE_KEY = 'ВСТАВЬТЕ_СЮДА_PUBLISHABLE_КЛЮЧ';
 
 var METRIC_LABELS = {
   profit: 'Прибыль / доход за месяц, ฿',
@@ -170,6 +170,17 @@ function renderChart() {
   var techPage = document.getElementById('tablo-techinfo');
   var treasuryPage = document.getElementById('tablo-treasury');
   if (treasuryPage) treasuryPage.classList.add('hidden');
+
+  var ratingPage = document.getElementById('tablo-rating');
+  if (ratingPage) ratingPage.classList.add('hidden');
+
+  if (currentMetric === 'rating') {
+    if (chart) { chart.destroy(); chart = null; }
+    canvas.classList.add('hidden');
+    techPage.classList.add('hidden');
+    renderRatingPage();
+    return;
+  }
 
   if (currentMetric === 'treasury') {
     if (chart) { chart.destroy(); chart = null; }
@@ -452,6 +463,112 @@ function renderTreasuryPage() {
   });
 }
 
+
+// ==================== РЕЙТИНГ ИГРОКОВ (v4.7) ====================
+//
+// Считается по всем доигранным партиям в базе и обновляется сам. Партия
+// попадает в зачёт, когда достигла своей лиги (12, 24 или 36 месяцев) и
+// либо закрыта явно, либо час стоит без движения — на случай, когда
+// ведущий разошёлся с группой и забыл нажать кнопку.
+//
+// Технические месяцы сверх кратного двенадцати отбрасываются: тринадцатый
+// доигрывается ради применения настроек и к результату отношения не имеет.
+
+var ratingData = null;
+var ratingLoadedAt = 0;
+
+function loadRating(force) {
+  // Рейтинг меняется только между партиями, поэтому дёргать его каждые
+  // десять секунд незачем. Обновляем раз в пять минут и по открытию вкладки.
+  if (!force && ratingData && Date.now() - ratingLoadedAt < 300000) {
+    renderRatingPage();
+    return;
+  }
+  apiGet('rating')
+    .then(function (d) {
+      if (d && d.ok) { ratingData = d; ratingLoadedAt = Date.now(); }
+      renderRatingPage();
+    })
+    .catch(function () { renderRatingPage(); });
+}
+
+function renderRatingPage() {
+  var page = document.getElementById('tablo-rating');
+  var empty = document.getElementById('tablo-empty');
+
+  if (!ratingData) {
+    empty.textContent = 'Загружаем рейтинг…';
+    empty.classList.remove('hidden');
+    page.classList.add('hidden');
+    return;
+  }
+
+  var players = ratingData.players || [];
+  if (!players.length) {
+    empty.textContent = 'Рейтинг наберётся, когда игроки доиграют по ' +
+      ratingData.minGames + ' полных партии (12, 24 или 36 месяцев). ' +
+      'Первая партия у новичка обычно уходит на знакомство с правилами, ' +
+      'поэтому в зачёт идут результаты начиная со второй.';
+    empty.classList.remove('hidden');
+    page.classList.add('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  page.classList.remove('hidden');
+
+  var fmt = function (v) { return Number(v || 0).toLocaleString('ru-RU'); };
+  var medal = function (i) { return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1); };
+
+  var rows = players.map(function (p, i) {
+    var history = (p.history || []).slice(0, 4).map(function (h) {
+      return '<span class="rating-chip" title="' + h.game + ', лига ' + h.league + ' мес">' +
+        h.place + '/' + h.rivals + ' · ×' + h.multiplier + '</span>';
+    }).join('');
+
+    return '<tr class="' + (i < 3 ? 'rating-top' : '') + '">' +
+      '<td class="rating-place">' + medal(i) + '</td>' +
+      '<td class="rating-name">' + p.restaurant +
+        '<div class="rating-nick">@' + p.username + '</div></td>' +
+      '<td class="rating-score">' + p.score + '</td>' +
+      '<td>' + p.games + '</td>' +
+      '<td>' + p.wins + '</td>' +
+      '<td>×' + p.avg_multiplier + '</td>' +
+      '<td>×' + p.best_multiplier + '</td>' +
+      '<td>' + fmt(p.avg_capital) + ' ฿</td>' +
+      '<td class="' + (Number(p.avg_debt) > 0 ? 'rating-debt' : '') + '">' + fmt(p.avg_debt) + ' ฿</td>' +
+      '<td>' + p.avg_share_pct + '%</td>' +
+      '<td class="rating-history">' + history + '</td>' +
+      '</tr>';
+  }).join('');
+
+  page.innerHTML =
+    '<div class="rating-head">' +
+      '<div class="rating-title">Рейтинг игроков</div>' +
+      '<div class="rating-rules">' +
+        'В зачёт идут доигранные партии: 12, 24 или 36 месяцев. ' +
+        'Технические месяцы сверх этого не учитываются. ' +
+        'Игрок попадает в рейтинг после ' + ratingData.minGames +
+        ' доигранных партий, в каждой из которых провёл не меньше ' +
+        ratingData.minMonths + ' месяцев.' +
+      '</div>' +
+    '</div>' +
+    '<div class="rating-formula">' +
+      '<b>Балл</b> = 0,7 × среднее приумножение капитала  +  0,9 × средняя доля места в партии. ' +
+      'Капитал считается по кассе на последний месяц лиги, <b>кредит не вычитается</b>: ' +
+      'занять под финиш — законный приём, но взятое в долг видно в колонке «Займ». ' +
+      'Приумножение, капитал и займ усреднены по всем партиям игрока.' +
+    '</div>' +
+    '<table class="rating-table">' +
+      '<thead><tr>' +
+        '<th>Место</th><th>Заведение</th><th>Балл</th><th>Партий</th><th>Побед</th>' +
+        '<th>Приумножение</th><th>Лучший рост</th><th>Капитал</th><th>Займ</th>' +
+        '<th>Доля рынка</th><th>Последние партии</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table>';
+}
+
 function renderTechInfoPage() {
   var page = document.getElementById('tablo-techinfo');
   var empty = document.getElementById('tablo-empty');
@@ -569,6 +686,7 @@ document.querySelectorAll('.tab-btn').forEach(function (btn) {
     currentMetric = btn.getAttribute('data-metric');
     hiddenDatasets = {};   // на новой вкладке показываем все линии заново
     lastTimelineSignature = null;   // заставляем перерисовать при смене вкладки
+    if (currentMetric === 'rating') loadRating(false);
     renderChart();
   });
 });

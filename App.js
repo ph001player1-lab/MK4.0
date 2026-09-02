@@ -1,4 +1,4 @@
-// "Захвати рынок или закрой бизнес" — MVP v4.6 · от 28.08.2026
+// "Захвати рынок или закрой бизнес" — MVP v4.7 · от 28.08.2026
 // Кабинет игрока и администратора. Обращается к Code.gs через fetch()
 // (только GET — см. пояснение внутри apiPost ниже).
 
@@ -13,8 +13,8 @@
 // Публичный ключ НЕ секрет: он по замыслу уезжает в браузер каждому
 // игроку. Красть им нечего — RLS в базе запрещает этому ключу всё, а
 // решает, кому что показать, сама Edge Function.
-var EXEC_URL = 'https://xgojmizawllcfbfojbex.supabase.co/functions/v1/game';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhnb2ptaXphd2xsY2ZiZm9qYmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4OTU5NTksImV4cCI6MjEwMzQ3MTk1OX0.X9yCnRspwyFtbd-kzP152WVFfttIzdHDjH3i10fUTfU';
+var EXEC_URL = 'ВСТАВЬТЕ_СЮДА_АДРЕС_ФУНКЦИИ_GAME';
+var SUPABASE_KEY = 'ВСТАВЬТЕ_СЮДА_PUBLISHABLE_КЛЮЧ';
 
 // Изредка Apps Script (через распределённую сеть edge-узлов Google) на
 // долю секунды отдаёт HTML-заглушку вместо JSON — особенно заметно при
@@ -1608,13 +1608,15 @@ function cancelResetConfirm() {
 
 function confirmReset(btn) {
   var hint = document.getElementById('reset-hint');
-  withButtonLoading(btn, 'Сбрасываем…', function () {
+  withButtonLoading(btn, 'Завершаем партию…', function () {
     return apiPost('adminResetGame', myUsername, { confirm: 'yes' })
       .then(function (res) {
         if (res.ok) {
           cancelResetConfirm();
-          hint.textContent = 'Партия сброшена: ' + (res.players || 0) +
-            ' игрок(ов) со стартовым капиталом, казна обнулена. Можно открывать первый месяц.';
+          hint.textContent = res.archived
+            ? ('Партия ' + res.previousCode + ' закрыта и ушла в архив. Начата ' +
+               res.code + ': ' + (res.players || 0) + ' игрок(ов) со стартовым капиталом.')
+            : ('Партия обнулена (сыгранных месяцев не было). Можно открывать первый месяц.');
           hint.className = 'field-hint field-hint-ok';
         } else {
           hint.textContent = 'Не удалось сбросить: ' + res.error;
